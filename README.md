@@ -30,6 +30,15 @@ npm run package    # standalone app at dist/Repo Hub-win32-x64/repo-hub.exe
 
 For a step-by-step walkthrough (running the app and connecting GitHub and GitLab), see [TUTORIAL.md](TUTORIAL.md).
 
+### Releases and tags
+
+Every `.exe` build gets its own release tag, `v<version>` (the version in `package.json`), pointing at the commit the `.exe` was built from.
+
+1. On a branch, raise `version` in `package.json` and merge it to `master` through a PR.
+2. On an up-to-date, clean `master`, run `npm run release -- --push`. It builds the `.exe`, creates an annotated tag with the build details and the list of changes, and pushes only that tag. `npm run release -- --dry-run` runs the checks and shows the plan without building.
+
+The script refuses to run off `master`, with uncommitted changes, when `master` differs from `origin/master`, or when the tag already exists. Tags are never moved or deleted.
+
 ### Signing in
 
 - **GitHub**: run `gh auth login` once. The app uses that `gh` login and does not store a GitHub token.
