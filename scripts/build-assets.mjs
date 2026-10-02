@@ -24,6 +24,28 @@ const copy = (from, to) => {
 const vendorJs = path.join(root, 'renderer', 'vendor', 'karirkit');
 fs.mkdirSync(vendorJs, { recursive: true });
 for (const f of ['theme.js', 'toast.js', 'modal.js', 'ui.js', 'table.js']) fs.copyFileSync(path.join(ds, 'assets', 'js', f), path.join(vendorJs, f));
+
+// Design system masih berbahasa Indonesia; terjemahkan salinan di renderer/vendor (bukan paketnya).
+// Peringatan muncul bila teks sumber berubah (mis. versi design system baru) dan perlu diperbarui di sini.
+const LOCALIZE = {
+  'table.js': [
+    ["label: 'Sebelumnya'", "label: 'Previous'"],
+    ["label: 'Berikutnya'", "label: 'Next'"],
+    ["'Menampilkan <b>'", "'Showing <b>'"],
+    ["'</b> dari <b>'", "'</b> of <b>'"],
+    ["'Tidak ada data'", "'No data'"],
+  ],
+  'toast.js': [['aria-label="Tutup"', 'aria-label="Close"']],
+};
+for (const [file, pairs] of Object.entries(LOCALIZE)) {
+  const target = path.join(vendorJs, file);
+  let src = fs.readFileSync(target, 'utf8');
+  for (const [from, to] of pairs) {
+    if (!src.includes(from)) console.warn(`Peringatan: teks "${from}" tidak ditemukan di ${file}; terjemahan dilewati.`);
+    src = src.split(from).join(to);
+  }
+  fs.writeFileSync(target, src);
+}
 copy(path.join(ds, 'assets', 'fonts'), path.join(root, 'renderer', 'assets', 'fonts')); // CSS memakai ../assets/fonts/...
 copy(path.join(ds, 'assets', 'logo'), path.join(root, 'renderer', 'assets', 'logo'));
 

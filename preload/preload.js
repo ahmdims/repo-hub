@@ -17,7 +17,7 @@ const EVENTS = new Set(['status:update', 'release:progress']);
 contextBridge.exposeInMainWorld('hub', {
   platform: process.platform,
   invoke(channel, payload) {
-    if (!INVOKE.has(channel)) return Promise.resolve({ ok: false, error: `Channel tidak diizinkan: ${channel}` });
+    if (!INVOKE.has(channel)) return Promise.resolve({ ok: false, error: `Channel not allowed: ${channel}` });
     return ipcRenderer.invoke('hub:invoke', channel, payload == null ? {} : payload);
   },
   on(channel, cb) {

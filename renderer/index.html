@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="id">
+<html lang="en">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -23,32 +23,32 @@
     <a href="#/dasbor" class="sidebar-logo-mark hidden items-center">
       <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-600 text-white"><i class="kk kk-git-branch h-5 w-5"></i></span>
     </a>
-    <button id="closeSidebarBtn" class="text-slate-400 hover:text-slate-600 lg:hidden" aria-label="Tutup menu"><i class="kk kk-x h-5 w-5"></i></button>
+    <button id="closeSidebarBtn" class="text-slate-400 hover:text-slate-600 lg:hidden" aria-label="Close menu"><i class="kk kk-x h-5 w-5"></i></button>
   </div>
 
   <nav class="flex-1 space-y-6 overflow-y-auto scrollbar-none px-3 py-5">
     <div>
-      <p class="nav-eyebrow mb-2">Kerja</p>
+      <p class="nav-eyebrow mb-2">Work</p>
       <div class="space-y-1">
-        <a href="#/dasbor" class="nav-item" data-nav="dasbor" data-tooltip-trigger data-tooltip-text="Dasbor" data-tooltip-side="right"><span class="nav-item-icon"><i class="kk kk-house h-5 w-5 shrink-0"></i></span><span class="sidebar-label">Dasbor</span></a>
-        <a href="#/pull-request" class="nav-item" data-nav="pull-request" data-tooltip-trigger data-tooltip-text="Pull Request" data-tooltip-side="right"><span class="nav-item-icon"><i class="kk kk-git-pull-request h-5 w-5 shrink-0"></i></span><span class="sidebar-label">Pull Request</span><span id="navPrBadge" class="badge-primary ml-auto hidden sidebar-label"></span></a>
-        <a href="#/rilis" class="nav-item" data-nav="rilis" data-tooltip-trigger data-tooltip-text="Rilis" data-tooltip-side="right"><span class="nav-item-icon"><i class="kk kk-rocket-launch h-5 w-5 shrink-0"></i></span><span class="sidebar-label">Rilis</span></a>
+        <a href="#/dasbor" class="nav-item" data-nav="dasbor" data-tooltip-trigger data-tooltip-text="Dashboard" data-tooltip-side="right"><span class="nav-item-icon"><i class="kk kk-house h-5 w-5 shrink-0"></i></span><span class="sidebar-label">Dashboard</span></a>
+        <a href="#/pull-request" class="nav-item" data-nav="pull-request" data-tooltip-trigger data-tooltip-text="Pull Requests" data-tooltip-side="right"><span class="nav-item-icon"><i class="kk kk-git-pull-request h-5 w-5 shrink-0"></i></span><span class="sidebar-label">Pull Requests</span><span id="navPrBadge" class="badge-primary ml-auto hidden sidebar-label"></span></a>
+        <a href="#/rilis" class="nav-item" data-nav="rilis" data-tooltip-trigger data-tooltip-text="Release" data-tooltip-side="right"><span class="nav-item-icon"><i class="kk kk-rocket-launch h-5 w-5 shrink-0"></i></span><span class="sidebar-label">Release</span></a>
       </div>
     </div>
     <div>
-      <p class="nav-eyebrow mb-2">Kelola</p>
+      <p class="nav-eyebrow mb-2">Manage</p>
       <div class="space-y-1">
-        <a href="#/repositori" class="nav-item" data-nav="repositori" data-tooltip-trigger data-tooltip-text="Repositori" data-tooltip-side="right"><span class="nav-item-icon"><i class="kk kk-folders h-5 w-5 shrink-0"></i></span><span class="sidebar-label">Repositori</span></a>
-        <a href="#/aktivitas" class="nav-item" data-nav="aktivitas" data-tooltip-trigger data-tooltip-text="Aktivitas" data-tooltip-side="right"><span class="nav-item-icon"><i class="kk kk-clock-counter-clockwise h-5 w-5 shrink-0"></i></span><span class="sidebar-label">Aktivitas</span></a>
-        <a href="#/pengaturan" class="nav-item" data-nav="pengaturan" data-tooltip-trigger data-tooltip-text="Pengaturan" data-tooltip-side="right"><span class="nav-item-icon"><i class="kk kk-gear-six h-5 w-5 shrink-0"></i></span><span class="sidebar-label">Pengaturan</span></a>
+        <a href="#/repositori" class="nav-item" data-nav="repositori" data-tooltip-trigger data-tooltip-text="Repositories" data-tooltip-side="right"><span class="nav-item-icon"><i class="kk kk-folders h-5 w-5 shrink-0"></i></span><span class="sidebar-label">Repositories</span></a>
+        <a href="#/aktivitas" class="nav-item" data-nav="aktivitas" data-tooltip-trigger data-tooltip-text="Activity" data-tooltip-side="right"><span class="nav-item-icon"><i class="kk kk-clock-counter-clockwise h-5 w-5 shrink-0"></i></span><span class="sidebar-label">Activity</span></a>
+        <a href="#/pengaturan" class="nav-item" data-nav="pengaturan" data-tooltip-trigger data-tooltip-text="Settings" data-tooltip-side="right"><span class="nav-item-icon"><i class="kk kk-gear-six h-5 w-5 shrink-0"></i></span><span class="sidebar-label">Settings</span></a>
       </div>
     </div>
   </nav>
 
   <div class="space-y-1 border-t border-slate-200/70 px-3 py-3">
-    <button type="button" id="collapseSidebarBtn" class="nav-item sidebar-collapse-btn hidden w-full lg:flex" aria-label="Lipat atau buka menu" data-tooltip-trigger data-tooltip-text="Buka Menu" data-tooltip-side="right">
+    <button type="button" id="collapseSidebarBtn" class="nav-item sidebar-collapse-btn hidden w-full lg:flex" aria-label="Collapse or open menu" data-tooltip-trigger data-tooltip-text="Open menu" data-tooltip-side="right">
       <span class="nav-item-icon"><i class="kk kk-caret-circle-left h-5 w-5 shrink-0 sidebar-collapse-icon"></i></span>
-      <span class="sidebar-label">Lipat Menu</span>
+      <span class="sidebar-label">Collapse menu</span>
     </button>
   </div>
 </aside>
@@ -57,24 +57,24 @@
 <div id="mainColumn" class="flex min-h-screen flex-col transition-[padding] duration-300 ease-in-out lg:pl-[264px]">
   <header class="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-slate-200/70 bg-white/80 px-4 backdrop-blur-md sm:px-6">
     <div class="flex min-w-0 flex-1 items-center gap-3">
-      <button id="openSidebarBtn" class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 lg:hidden" aria-label="Buka menu"><i class="kk kk-list h-5 w-5"></i></button>
+      <button id="openSidebarBtn" class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 lg:hidden" aria-label="Open menu"><i class="kk kk-list h-5 w-5"></i></button>
       <nav class="breadcrumb min-w-0 flex-nowrap" aria-label="Breadcrumb">
         <a href="#/dasbor" class="breadcrumb-link shrink-0"><i class="kk kk-git-branch h-4 w-4"></i><span class="hidden sm:inline">Repo Hub</span></a>
         <span class="breadcrumb-separator shrink-0"><i class="kk kk-caret-right h-3 w-3"></i></span>
-        <span class="breadcrumb-current min-w-0" aria-current="page"><span id="crumb" class="min-w-0 truncate">Dasbor</span></span>
+        <span class="breadcrumb-current min-w-0" aria-current="page"><span id="crumb" class="min-w-0 truncate">Dashboard</span></span>
       </nav>
     </div>
     <div class="flex shrink-0 items-center gap-2 sm:gap-3">
-      <button type="button" id="refreshBtn" class="btn-outline btn-sm" title="Segarkan semua (fetch + status + PR/MR)"><i class="kk kk-arrows-clockwise h-4 w-4" id="refreshIcon"></i><span class="hidden md:inline">Segarkan</span></button>
-      <div role="radiogroup" aria-label="Tema tampilan" class="hidden items-center gap-0.5 rounded-xl bg-slate-100/80 p-1 sm:flex">
-        <button type="button" role="radio" aria-checked="false" data-theme-option="light" title="Terang" aria-label="Terang" class="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition-colors hover:text-slate-800"><i class="kk kk-sun h-4 w-4"></i></button>
-        <button type="button" role="radio" aria-checked="false" data-theme-option="dark" title="Gelap" aria-label="Gelap" class="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition-colors hover:text-slate-800"><i class="kk kk-moon h-4 w-4"></i></button>
-        <button type="button" role="radio" aria-checked="false" data-theme-option="system" title="Ikuti sistem" aria-label="Ikuti sistem" class="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition-colors hover:text-slate-800"><i class="kk kk-desktop h-4 w-4"></i></button>
+      <button type="button" id="refreshBtn" class="btn-outline btn-sm" title="Refresh all (fetch + status + PR/MR)"><i class="kk kk-arrows-clockwise h-4 w-4" id="refreshIcon"></i><span class="hidden md:inline">Refresh</span></button>
+      <div role="radiogroup" aria-label="Theme" class="hidden items-center gap-0.5 rounded-xl bg-slate-100/80 p-1 sm:flex">
+        <button type="button" role="radio" aria-checked="false" data-theme-option="light" title="Light" aria-label="Light" class="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition-colors hover:text-slate-800"><i class="kk kk-sun h-4 w-4"></i></button>
+        <button type="button" role="radio" aria-checked="false" data-theme-option="dark" title="Dark" aria-label="Dark" class="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition-colors hover:text-slate-800"><i class="kk kk-moon h-4 w-4"></i></button>
+        <button type="button" role="radio" aria-checked="false" data-theme-option="system" title="System" aria-label="System" class="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition-colors hover:text-slate-800"><i class="kk kk-desktop h-4 w-4"></i></button>
       </div>
-      <a href="#/pengaturan" id="accountChip" class="flex items-center gap-2.5 rounded-xl py-1.5 pl-1.5 pr-2 text-left transition-colors hover:bg-slate-100" title="Akun terhubung">
+      <a href="#/pengaturan" id="accountChip" class="flex items-center gap-2.5 rounded-xl py-1.5 pl-1.5 pr-2 text-left transition-colors hover:bg-slate-100" title="Connected accounts">
         <span class="avatar h-9 w-9 shrink-0 text-sm" id="accountAvatar">?</span>
         <span class="hidden min-w-0 sm:block">
-          <span class="block truncate text-sm font-semibold text-slate-800" id="accountName">Memeriksa akun…</span>
+          <span class="block truncate text-sm font-semibold text-slate-800" id="accountName">Checking account…</span>
           <span class="block truncate text-xs text-slate-400" id="accountSub">GitHub · GitLab</span>
         </span>
       </a>
@@ -85,8 +85,8 @@
 
   <footer>
     <div class="mx-auto flex flex-col items-center justify-between gap-3 border-t border-slate-200/70 bg-surface px-4 py-4 text-xs text-slate-400 sm:flex-row sm:px-6">
-      <p>Repo Hub <span id="appVersion"></span> &middot; dibangun dengan design system KarirKit</p>
-      <p id="footStatus">Siap</p>
+      <p>Repo Hub <span id="appVersion"></span> &middot; built with the KarirKit design system</p>
+      <p id="footStatus">Ready</p>
     </div>
   </footer>
 </div>

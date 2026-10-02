@@ -6,7 +6,7 @@ function createGitlab(auth) {
   async function req(baseUrl, method, apiPath, { query, body } = {}) {
     const host = new URL(baseUrl).host;
     const token = await auth.getToken(host);
-    if (!token) return { ok: false, code: 'NO_TOKEN', error: `Token GitLab untuk ${host} belum diatur (Pengaturan > GitLab).` };
+    if (!token) return { ok: false, code: 'NO_TOKEN', error: `GitLab token for ${host} is not set (Settings > GitLab).` };
     const url = new URL(`${baseUrl.replace(/\/$/, '')}/api/v4${apiPath}`);
     for (const [k, v] of Object.entries(query || {})) if (v != null) url.searchParams.set(k, String(v));
     const ctrl = new AbortController();
@@ -18,12 +18,12 @@ function createGitlab(auth) {
       if (!res.ok) {
         let msg = (data && (data.message || data.error)) || res.statusText || `HTTP ${res.status}`;
         if (typeof msg !== 'string') msg = JSON.stringify(msg);
-        if (res.status === 401) { auth.forget(host); msg = 'Token GitLab ditolak (401). Periksa token di Pengaturan.'; }
+        if (res.status === 401) { auth.forget(host); msg = 'GitLab rejected the token (401). Check the token in Settings > GitLab.'; }
         return { ok: false, status: res.status, error: msg.slice(0, 400) };
       }
       return { ok: true, status: res.status, data, headers: res.headers };
     } catch (e) {
-      return { ok: false, error: e.name === 'AbortError' ? 'GitLab tidak merespons (timeout 30 detik).' : `Gagal terhubung ke GitLab: ${e.message}` };
+      return { ok: false, error: e.name === 'AbortError' ? 'GitLab did not respond (timed out after 30 seconds).' : `Could not connect to GitLab: ${e.message}` };
     } finally { clearTimeout(timer); }
   }
 
@@ -121,18 +121,18 @@ function createGitlab(auth) {
       if (action === 'approve') { const r = await req(baseUrl, 'POST', `${base}/approve`); return r.ok ? { ok: true } : r; }
       if (action === 'unapprove') { const r = await req(baseUrl, 'POST', `${base}/unapprove`); return r.ok ? { ok: true } : r; }
       if (action === 'comment') {
-        if (!String(body || '').trim()) return { ok: false, error: 'Komentar wajib diisi.' };
+        if (!String(body || '').trim()) return { ok: false, error: 'Comment is required.' };
         const r = await req(baseUrl, 'POST', `${base}/notes`, { body: { body: String(body) } }); return r.ok ? { ok: true } : r;
       }
-      return { ok: false, error: 'Aksi review tidak didukung di GitLab.' };
+      return { ok: false, error: 'This review action is not supported on GitLab.' };
     },
     async comment(baseUrl, project, iid, body) {
-      if (!String(body || '').trim()) return { ok: false, error: 'Komentar wajib diisi.' };
+      if (!String(body || '').trim()) return { ok: false, error: 'Comment is required.' };
       const r = await req(baseUrl, 'POST', `/projects/${asId(project)}/merge_requests/${iid}/notes`, { body: { body: String(body) } });
       return r.ok ? { ok: true } : r;
     },
     async merge(baseUrl, project, iid, { method = 'merge', deleteBranch = false, auto = false } = {}) {
-      if (method === 'rebase') return { ok: false, error: 'Rebase-merge belum didukung untuk GitLab; pakai merge atau squash.' };
+      if (method === 'rebase') return { ok: false, error: 'Rebase merge is not supported for GitLab yet; use merge or squash.' };
       const r = await req(baseUrl, 'PUT', `/projects/${asId(project)}/merge_requests/${iid}/merge`, { body: { squash: method === 'squash', should_remove_source_branch: !!deleteBranch, merge_when_pipeline_succeeds: !!auto } });
       return r.ok ? { ok: true } : r;
     },

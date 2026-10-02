@@ -1,17 +1,17 @@
 // Parser + penampil unified diff (dipakai untuk PR GitHub dan MR GitLab).
-import { esc, html, raw, icon } from './h.js';
+import { esc, html, raw, icon, plural } from './h.js';
 
 export function parseDiff(text) {
   const files = [];
   let f = null, h = null, oldNo = 0, newNo = 0;
-  const start = (path) => { f = { path, oldPath: path, status: 'diubah', additions: 0, deletions: 0, binary: false, hunks: [] }; files.push(f); h = null; };
+  const start = (path) => { f = { path, oldPath: path, status: 'modified', additions: 0, deletions: 0, binary: false, hunks: [] }; files.push(f); h = null; };
   for (const line of String(text || '').split('\n')) {
     let m;
     if ((m = /^diff --git a\/(.+?) b\/(.+)$/.exec(line))) { start(m[2]); f.oldPath = m[1]; continue; }
     if (!f) continue;
-    if (line.startsWith('new file mode')) { f.status = 'baru'; continue; }
-    if (line.startsWith('deleted file mode')) { f.status = 'dihapus'; continue; }
-    if (line.startsWith('rename from ')) { f.status = 'diganti nama'; continue; }
+    if (line.startsWith('new file mode')) { f.status = 'added'; continue; }
+    if (line.startsWith('deleted file mode')) { f.status = 'deleted'; continue; }
+    if (line.startsWith('rename from ')) { f.status = 'renamed'; continue; }
     if (line.startsWith('Binary files')) { f.binary = true; continue; }
     if (line.startsWith('--- ') && !h) continue;
     if (line.startsWith('+++ ') && !h) continue;
@@ -48,17 +48,17 @@ export function renderFile(f, { limit = 400 } = {}) {
         <span class="shrink-0 text-xs font-medium text-success-700">+${f.additions}</span>
         <span class="shrink-0 text-xs font-medium text-danger-600">−${f.deletions}</span>
       </summary>
-      ${f.binary ? html`<p class="p-4 text-xs text-slate-500">File biner tidak ditampilkan.</p>` : html`
+      ${f.binary ? html`<p class="p-4 text-xs text-slate-500">Binary file not shown.</p>` : html`
         <div class="overflow-x-auto"><table class="diff-table"><tbody>${raw(rows.join(''))}</tbody></table></div>
-        ${cut ? html`<p class="border-t border-slate-100 px-4 py-2 text-xs text-slate-500">${icon('info', 'h-3.5 w-3.5 inline')} Menampilkan ${shown} dari ${total} baris. Buka di GitHub/GitLab untuk diff lengkap.</p>` : ''}`}
+        ${cut ? html`<p class="border-t border-slate-100 px-4 py-2 text-xs text-slate-500">${icon('info', 'h-3.5 w-3.5 inline')} Showing ${shown} of ${total} lines. Open in GitHub/GitLab for the full diff.</p>` : ''}`}
     </details>`;
 }
 
 export function renderDiff(text, opts) {
   const files = parseDiff(text);
-  if (!files.length) return html`<p class="p-6 text-center text-sm text-slate-500">Tidak ada perubahan file.</p>`;
+  if (!files.length) return html`<p class="p-6 text-center text-sm text-slate-500">No file changes.</p>`;
   const add = files.reduce((n, f) => n + f.additions, 0), del = files.reduce((n, f) => n + f.deletions, 0);
   return html`
-    <div class="mb-3 flex items-center gap-3 text-sm text-slate-500">${icon('files')}<span>${files.length} file</span><span class="font-medium text-success-700">+${add}</span><span class="font-medium text-danger-600">−${del}</span></div>
+    <div class="mb-3 flex items-center gap-3 text-sm text-slate-500">${icon('files')}<span>${files.length} ${plural(files.length, 'file')}</span><span class="font-medium text-success-700">+${add}</span><span class="font-medium text-danger-600">−${del}</span></div>
     <div class="space-y-3">${files.map((f) => renderFile(f, opts))}</div>`;
 }

@@ -36,8 +36,8 @@ function renderAccount() {
   const gl = a ? Object.values(a.gitlab || {}).find((x) => x.ok) : null;
   const name = document.getElementById('accountName'), sub = document.getElementById('accountSub'), av = document.getElementById('accountAvatar');
   if (!a) return;
-  name.textContent = gh || (gl && gl.login) || 'Belum terhubung';
-  sub.textContent = [gh ? `GitHub: ${gh}` : 'GitHub: belum login', Object.keys(a.gitlab || {}).length ? (gl ? `GitLab: ${gl.login}` : 'GitLab: token belum diatur') : null].filter(Boolean).join(' · ');
+  name.textContent = gh || (gl && gl.login) || 'Not connected';
+  sub.textContent = [gh ? `GitHub: ${gh}` : 'GitHub: not logged in', Object.keys(a.gitlab || {}).length ? (gl ? `GitLab: ${gl.login}` : 'GitLab: token not set') : null].filter(Boolean).join(' · ');
   av.textContent = initials(gh || (gl && gl.login) || '?');
 }
 
@@ -45,7 +45,7 @@ function renderRefreshState() {
   const icon = document.getElementById('refreshIcon');
   icon.classList.toggle('animate-spin', state.loadingAll);
   document.getElementById('refreshBtn').disabled = state.loadingAll;
-  document.getElementById('footStatus').textContent = state.loadingAll ? 'Menyegarkan…' : state.lastRefresh ? `Diperbarui ${new Date(state.lastRefresh).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}` : 'Siap';
+  document.getElementById('footStatus').textContent = state.loadingAll ? 'Refreshing…' : state.lastRefresh ? `Updated ${new Date(state.lastRefresh).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}` : 'Ready';
 }
 
 function renderPrBadge() {

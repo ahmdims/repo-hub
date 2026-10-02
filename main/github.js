@@ -6,7 +6,7 @@ const { run } = require('./exec');
 const LIST_FIELDS = 'number,title,url,author,isDraft,state,headRefName,baseRefName,createdAt,updatedAt,statusCheckRollup,reviewDecision,mergeStateStatus,mergeable,labels,additions,deletions,changedFiles';
 const DETAIL_FIELDS = `${LIST_FIELDS},body,reviews,comments,commits,files,mergedAt,reviewRequests`;
 
-const fail = (r, fallback) => ({ ok: false, error: (r.stderr || fallback || 'gh gagal').split('\n').slice(0, 4).join(' ').slice(0, 500) });
+const fail = (r, fallback) => ({ ok: false, error: (r.stderr || fallback || 'gh failed').split('\n').slice(0, 4).join(' ').slice(0, 500) });
 
 function checksFrom(rollup) {
   const items = (rollup || []).map((c) => {
@@ -51,13 +51,13 @@ function normalize(p, repoId) {
 
 async function viewer() {
   const r = await run('gh', ['api', 'user', '--jq', '.login'], { timeout: 20000 });
-  return r.ok ? { ok: true, login: r.stdout.trim() } : fail(r, 'Belum login ke GitHub (jalankan: gh auth login)');
+  return r.ok ? { ok: true, login: r.stdout.trim() } : fail(r, 'Not signed in to GitHub (run: gh auth login)');
 }
 
 async function list(repo, repoId, { state = 'open', limit = 40 } = {}) {
   const r = await run('gh', ['pr', 'list', '-R', repo, '--state', state, '--limit', String(limit), '--json', LIST_FIELDS], { timeout: 60000 });
   if (!r.ok) return fail(r);
-  try { return { ok: true, items: JSON.parse(r.stdout || '[]').map((p) => normalize(p, repoId)) }; } catch { return { ok: false, error: 'Respons gh tidak terbaca.' }; }
+  try { return { ok: true, items: JSON.parse(r.stdout || '[]').map((p) => normalize(p, repoId)) }; } catch { return { ok: false, error: 'Could not parse the gh response.' }; }
 }
 
 async function detail(repo, repoId, number) {
@@ -75,7 +75,7 @@ async function detail(repo, repoId, number) {
         comments: (p.comments || []).map((x) => ({ author: x.author && x.author.login, body: x.body || '', date: x.createdAt })),
       },
     };
-  } catch { return { ok: false, error: 'Respons gh tidak terbaca.' }; }
+  } catch { return { ok: false, error: 'Could not parse the gh response.' }; }
 }
 
 async function diff(repo, number) {
@@ -85,8 +85,8 @@ async function diff(repo, number) {
 
 async function review(repo, number, { action, body }) {
   const flag = { approve: '--approve', changes: '--request-changes', comment: '--comment' }[action];
-  if (!flag) return { ok: false, error: 'Aksi review tidak dikenal.' };
-  if ((action === 'changes' || action === 'comment') && !String(body || '').trim()) return { ok: false, error: 'Komentar wajib diisi.' };
+  if (!flag) return { ok: false, error: 'Unknown review action.' };
+  if ((action === 'changes' || action === 'comment') && !String(body || '').trim()) return { ok: false, error: 'Comment is required.' };
   const args = ['pr', 'review', String(number), '-R', repo, flag];
   if (body && String(body).trim()) args.push('-b', String(body));
   const r = await run('gh', args, { timeout: 60000 });
@@ -94,14 +94,14 @@ async function review(repo, number, { action, body }) {
 }
 
 async function comment(repo, number, body) {
-  if (!String(body || '').trim()) return { ok: false, error: 'Komentar wajib diisi.' };
+  if (!String(body || '').trim()) return { ok: false, error: 'Comment is required.' };
   const r = await run('gh', ['pr', 'comment', String(number), '-R', repo, '-b', String(body)], { timeout: 60000 });
   return r.ok ? { ok: true } : fail(r);
 }
 
 async function merge(repo, number, { method = 'merge', deleteBranch = false } = {}) {
   const flag = { merge: '--merge', squash: '--squash', rebase: '--rebase' }[method];
-  if (!flag) return { ok: false, error: 'Metode merge tidak dikenal.' };
+  if (!flag) return { ok: false, error: 'Unknown merge method.' };
   const args = ['pr', 'merge', String(number), '-R', repo, flag];
   if (deleteBranch) args.push('--delete-branch');
   const r = await run('gh', args, { timeout: 120000 });
@@ -129,7 +129,7 @@ async function create(repo, { base, head, title, body, draft }) {
 async function deployments(repo, sha) {
   const r = await run('gh', ['api', `repos/${repo}/deployments?sha=${encodeURIComponent(sha)}&per_page=10`], { timeout: 30000 });
   if (!r.ok) return fail(r);
-  let list; try { list = JSON.parse(r.stdout || '[]'); } catch { return { ok: false, error: 'Respons gh tidak terbaca.' }; }
+  let list; try { list = JSON.parse(r.stdout || '[]'); } catch { return { ok: false, error: 'Could not parse the gh response.' }; }
   const out = [];
   for (const d of list) {
     const s = await run('gh', ['api', `repos/${repo}/deployments/${d.id}/statuses?per_page=1`], { timeout: 30000 });
@@ -142,7 +142,7 @@ async function deployments(repo, sha) {
 async function repoInfo(repo) {
   const r = await run('gh', ['repo', 'view', repo, '--json', 'nameWithOwner,defaultBranchRef,viewerPermission,isPrivate'], { timeout: 30000 });
   if (!r.ok) return fail(r);
-  try { return { ok: true, info: JSON.parse(r.stdout) }; } catch { return { ok: false, error: 'Respons gh tidak terbaca.' }; }
+  try { return { ok: true, info: JSON.parse(r.stdout) }; } catch { return { ok: false, error: 'Could not parse the gh response.' }; }
 }
 
 module.exports = { viewer, list, detail, diff, review, comment, merge, close, create, deployments, repoInfo, checksFrom, normalize };

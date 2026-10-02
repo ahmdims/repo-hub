@@ -19,16 +19,19 @@ export const icon = (name, cls = 'h-4 w-4') => raw(`<i class="kk kk-${esc(name)}
 const BADGE = { success: 'badge-success', warning: 'badge-warning', danger: 'badge-danger', info: 'badge-info', primary: 'badge-primary', neutral: 'badge-neutral' };
 export const badge = (kind, text, iconName) => html`<span class="${BADGE[kind] || 'badge-neutral'} whitespace-nowrap">${iconName ? icon(iconName, 'h-3 w-3') : ''}${text}</span>`;
 
+// plural(n, 'repo') -> 'repo' / 'repos'; plural(n, 'branch', 'branches') for irregular forms. Usage: `${n} ${plural(n, 'repo')}`.
+export const plural = (n, one, many = `${one}s`) => (n === 1 ? one : many);
+
 export function timeAgo(iso) {
   if (!iso) return '—';
   const s = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000);
-  if (s < 60) return 'baru saja';
-  if (s < 3600) return `${Math.floor(s / 60)} menit lalu`;
-  if (s < 86400) return `${Math.floor(s / 3600)} jam lalu`;
-  if (s < 86400 * 30) return `${Math.floor(s / 86400)} hari lalu`;
-  return new Date(iso).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+  if (s < 60) return 'just now';
+  if (s < 3600) return `${Math.floor(s / 60)} min ago`;
+  if (s < 86400) { const n = Math.floor(s / 3600); return `${n} ${plural(n, 'hour')} ago`; }
+  if (s < 86400 * 30) { const n = Math.floor(s / 86400); return `${n} ${plural(n, 'day')} ago`; }
+  return new Date(iso).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
 }
-export const fmtTime = (iso) => new Date(iso).toLocaleString('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+export const fmtTime = (iso) => new Date(iso).toLocaleString('en-US', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', second: '2-digit' });
 export const initials = (s) => String(s || '?').split(/[\s._-]+/).filter(Boolean).slice(0, 2).map((x) => x[0].toUpperCase()).join('') || '?';
 export const platformName = (p) => (p === 'github' ? 'GitHub' : p === 'gitlab' ? 'GitLab' : p);
 export const prWord = (p) => (p === 'gitlab' ? 'MR' : 'PR');
