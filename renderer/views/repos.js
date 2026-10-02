@@ -58,7 +58,8 @@ async function onClick(e) {
   if (act.dataset.act === 'test') return busy(act, async () => {
     const t = await call('repos:test', { id });
     if (!t.ok) return;
-    const row = (name, x, extra) => html`<div class="flex items-start gap-3 rounded-xl border border-border p-3.5">${icon(x && x.ok ? 'check-circle' : 'warning-circle', `mt-0.5 h-5 w-5 shrink-0 ${x && x.ok ? 'text-success-600' : 'text-danger-600'}`)}<div class="min-w-0"><p class="font-medium text-slate-800">${name}</p><p class="text-sm ${x && x.ok ? 'text-slate-500' : 'text-danger-700'}">${x ? (x.ok ? extra : x.error) : 'Not configured'}</p></div></div>`;
+    const off = (x) => !!x && !x.ok && x.code === 'NO_TOKEN';
+    const row = (name, x, extra) => html`<div class="flex items-start gap-3 rounded-xl border border-border p-3.5">${icon(x && x.ok ? 'check-circle' : off(x) ? 'info' : 'warning-circle', `mt-0.5 h-5 w-5 shrink-0 ${x && x.ok ? 'text-success-600' : off(x) ? 'text-info-600' : 'text-danger-600'}`)}<div class="min-w-0"><p class="font-medium text-slate-800">${name}</p><p class="text-sm ${x && (x.ok || off(x)) ? 'text-slate-500' : 'text-danger-700'}">${x ? (x.ok ? extra : off(x) ? `${x.error} Push, fetch and sync still work through git.` : x.error) : 'Not configured'}</p></div></div>`;
     dialog({ title: `Test connection · ${r.name}`, size: 'modal-md', body: html`<div class="space-y-3">
       ${row('Local folder', { ok: t.folder, error: 'Folder not found.' }, r.path)}
       ${r.github ? row('GitHub', t.github, `Access: ${t.github && t.github.permission}${t.github && t.github.isPrivate ? ' · private' : ''} · default: ${t.github && t.github.defaultBranch}`) : ''}

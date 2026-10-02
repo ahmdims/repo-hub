@@ -9,13 +9,30 @@ let host = null, settings = { postBuffer: 1048576, useGitCredential: true }, can
 const mb = (b) => `${(b / 1048576).toFixed(b >= 10485760 ? 0 : 1)} MB`;
 const SOURCE_LABEL = { aplikasi: 'app', 'kredensial git': 'git credential' }; // sumber token dari main/auth.js; hanya tampilan
 
+// Satu kartu per host GitLab: akses git (seperti GitHub lewat gh) dan MR (token opsional) dipisah.
+function hostCard(h, x) {
+  const g = x.git;
+  const mr = x.ok ? badge('success', `Connected: ${x.login}`, 'check-circle') : x.token.has ? badge('warning', 'Token not working', 'warning') : badge('neutral', 'Off', 'info');
+  return html`<div class="rounded-xl border border-border p-4" data-host="${h}">
+    <p class="font-medium text-slate-800">${h}</p>
+    <div class="mt-3 space-y-3">
+      <div class="flex flex-wrap items-start justify-between gap-2"><div><p class="text-sm font-medium text-slate-700">Git access</p><p class="text-xs text-slate-500">Push, fetch and sync use your git login${g.repo ? ` (checked with ${g.repo})` : ''}.</p></div>${g.ok ? badge('success', 'Connected via git', 'check-circle') : badge('danger', 'Cannot reach', 'warning-circle')}</div>
+      ${g.ok ? '' : html`<p class="text-xs text-danger-700">${g.error}</p>`}
+      <div class="flex flex-wrap items-start justify-between gap-2 border-t border-border pt-3"><div><p class="text-sm font-medium text-slate-700">Merge requests</p><p class="text-xs text-slate-500">${x.token.has ? `Token from: ${SOURCE_LABEL[x.token.source] || x.token.source}` : 'Optional. Needs a personal access token (scope api).'}</p></div>${mr}</div>
+      ${x.ok || !x.token.has ? '' : html`<p class="text-xs text-danger-700">${x.error}</p>`}
+      <details class="text-sm"><summary class="cursor-pointer text-xs font-medium text-primary-600">${x.token.has ? 'Replace token' : 'Add a token (optional)'}</summary>
+        <div class="mt-2 flex flex-wrap gap-2"><input type="password" class="input h-9 min-w-[16rem] flex-1 font-mono text-xs" placeholder="Paste new token (glpat-…)" autocomplete="off" data-token ${canEncrypt ? '' : 'disabled'} /><button type="button" class="btn-primary btn-sm" data-save-token ${canEncrypt ? '' : 'disabled'}>${icon('lock-key', 'h-3.5 w-3.5')}Save</button>${x.token.source === 'aplikasi' ? html`<button type="button" class="btn-outline btn-sm text-danger-600" data-clear-token>${icon('trash', 'h-3.5 w-3.5')}Delete token</button>` : ''}</div></details>
+    </div>
+  </div>`;
+}
+
 function render() {
   if (!host) return;
   const a = state.accounts;
   const gh = a && a.github;
   const hosts = a ? Object.entries(a.gitlab || {}) : [];
   setHtml(host, html`
-    <div class="min-w-0"><h2 class="font-display text-2xl font-bold text-slate-900 sm:text-3xl">Settings</h2><p class="mt-1 text-sm text-slate-500">Account connections and git options. This app does not store a GitHub token; the GitLab token is stored encrypted by the operating system.</p></div>
+    <div class="min-w-0"><h2 class="font-display text-2xl font-bold text-slate-900 sm:text-3xl">Settings</h2><p class="mt-1 text-sm text-slate-500">Account connections and git options. This app does not store a GitHub token; an optional GitLab token is stored encrypted by the operating system.</p></div>
 
     <div class="card p-5 sm:p-6">
       <div class="flex flex-wrap items-center justify-between gap-3"><div class="flex items-center gap-3"><span class="flex h-10 w-10 items-center justify-center rounded-xl bg-neutral-100 text-slate-700">${icon('github-logo', 'h-5 w-5')}</span><div><h3 class="text-base font-semibold text-slate-800">GitHub</h3><p class="text-sm text-slate-500">Uses the GitHub CLI (<span class="kbd-ref">gh</span>) login on this computer.</p></div></div>
@@ -24,13 +41,11 @@ function render() {
     </div>
 
     <div class="card p-5 sm:p-6">
-      <div class="flex items-center gap-3"><span class="flex h-10 w-10 items-center justify-center rounded-xl bg-neutral-100 text-slate-700">${icon('gitlab-logo', 'h-5 w-5')}</span><div><h3 class="text-base font-semibold text-slate-800">GitLab</h3><p class="text-sm text-slate-500">Personal access token (scope <span class="kbd-ref">api</span>) to read and manage MRs.</p></div></div>
+      <div class="flex flex-wrap items-center justify-between gap-3"><div class="flex min-w-0 flex-1 items-center gap-3"><span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-neutral-100 text-slate-700">${icon('gitlab-logo', 'h-5 w-5')}</span><div><h3 class="text-base font-semibold text-slate-800">GitLab</h3><p class="text-sm text-slate-500">Push, fetch and sync use your git login, the same way GitHub uses <span class="kbd-ref">gh</span>. A personal access token (scope <span class="kbd-ref">api</span>) is optional and only enables merge requests.</p></div></div>
+        <button type="button" class="btn-outline btn-sm" data-recheck>${icon('arrows-clockwise', 'h-3.5 w-3.5')}Check again</button></div>
       ${!canEncrypt ? html`<div class="callout-warning mt-4 flex gap-3">${icon('warning', 'h-4 w-4 shrink-0 text-warning-600')}<p class="text-sm">Secure OS storage is not available; use the <span class="kbd-ref">GITLAB_TOKEN</span> environment variable.</p></div>` : ''}
-      <div class="mt-4 space-y-4">${hosts.length ? hosts.map(([h, x]) => html`<div class="rounded-xl border border-border p-4" data-host="${h}">
-        <div class="flex flex-wrap items-center justify-between gap-2"><div><p class="font-medium text-slate-800">${h}</p><p class="text-xs text-slate-500">${x.token.has ? `Token from: ${SOURCE_LABEL[x.token.source] || x.token.source}` : 'No token yet'}</p></div>${x.ok ? badge('success', `Connected: ${x.login}`, 'check-circle') : badge('warning', x.token.has ? 'Token not working' : 'Needs token', 'warning')}</div>
-        ${x.ok ? '' : html`<p class="mt-2 text-xs text-danger-700">${x.error}</p>`}
-        <div class="mt-3 flex flex-wrap gap-2"><input type="password" class="input h-9 min-w-[16rem] flex-1 font-mono text-xs" placeholder="Paste new token (glpat-…)" autocomplete="off" data-token ${canEncrypt ? '' : 'disabled'} /><button type="button" class="btn-primary btn-sm" data-save-token ${canEncrypt ? '' : 'disabled'}>${icon('lock-key', 'h-3.5 w-3.5')}Save</button>${x.token.source === 'aplikasi' ? html`<button type="button" class="btn-outline btn-sm text-danger-600" data-clear-token>${icon('trash', 'h-3.5 w-3.5')}Delete token</button>` : ''}</div></div>`) : html`<p class="text-sm text-slate-500">No repos with GitLab yet. Add a repo that has a GitLab remote on the Repositories page.</p>`}</div>
-      <label class="mt-5 flex items-start gap-2.5 text-sm text-slate-700"><input type="checkbox" class="form-check form-check-sm mt-0.5" data-use-cred ${settings.useGitCredential ? 'checked' : ''} /><span>Try the stored git credential as a token when no token is set.<br /><span class="text-xs text-slate-500">Only works if the stored password is actually a personal access token.</span></span></label>
+      <div class="mt-4 space-y-4">${!a ? html`<p class="text-sm text-slate-400">Checking…</p>` : hosts.length ? hosts.map(([h, x]) => hostCard(h, x)) : html`<p class="text-sm text-slate-500">No repos with GitLab yet. Add a repo that has a GitLab remote on the Repositories page.</p>`}</div>
+      <label class="mt-5 flex items-start gap-2.5 text-sm text-slate-700"><input type="checkbox" class="form-check form-check-sm mt-0.5" data-use-cred ${settings.useGitCredential ? 'checked' : ''} /><span>Try the stored git credential as a token when no token is set.<br /><span class="text-xs text-slate-500">Only used if the stored password looks like a GitLab token; account passwords are ignored.</span></span></label>
     </div>
 
     <div class="card p-5 sm:p-6">
@@ -46,7 +61,7 @@ function render() {
 export async function mount(el) {
   host = el;
   host.addEventListener('click', async (e) => {
-    if (e.target.closest('[data-recheck]')) return busy(e.target.closest('[data-recheck]'), async () => { await loadAccounts(); render(); });
+    if (e.target.closest('[data-recheck]')) return busy(e.target.closest('[data-recheck]'), async () => { await loadAccounts({ fresh: true }); render(); });
     const save = e.target.closest('[data-save-token]');
     if (save) {
       const box = save.closest('[data-host]'); const token = box.querySelector('[data-token]').value.trim();

@@ -10,7 +10,7 @@ const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
 export const title = 'Pull Requests';
 let host = null, root = null, offs = [], selected = new Set();
-let data = { items: [], errors: [], loaded: false, loading: false };
+let data = { items: [], errors: [], disabled: [], loaded: false, loading: false };
 const filters = { repo: '', platform: '', state: 'open' };
 
 const keyOf = (p) => `${p.repoId}|${p.platform}|${p.id}`;
@@ -94,14 +94,17 @@ function paint() {
   const table = window.KKTable.get(root);
   if (table) table.render();
   setHtml(host.querySelector('#prStats'), statsHtml());
-  setHtml(host.querySelector('#prErrors'), data.errors.length ? html`<div class="callout-warning m-4 flex items-start gap-3">${icon('warning', 'h-4 w-4 shrink-0 text-warning-600')}<div class="text-sm">${data.errors.map((e) => html`<p><b>${e.repoName}</b> (${platformName(e.platform)}): ${e.error}</p>`)}</div></div>` : '');
+  const offNames = [...new Set((data.disabled || []).map((d) => d.repoName))];
+  const offNote = offNames.length ? html`<div class="callout-info m-4 flex items-start gap-3">${icon('info', 'h-4 w-4 shrink-0 text-info-600')}<div class="text-sm"><p><b>GitLab MRs are off</b> for ${offNames.join(', ')}: no GitLab token is set. Push, fetch and sync still work through git. To see MRs here, add a token under Settings → GitLab.</p></div></div>` : '';
+  const errNote = data.errors.length ? html`<div class="callout-warning m-4 flex items-start gap-3">${icon('warning', 'h-4 w-4 shrink-0 text-warning-600')}<div class="text-sm">${data.errors.map((e) => html`<p><b>${e.repoName}</b> (${platformName(e.platform)}): ${e.error}</p>`)}</div></div>` : '';
+  setHtml(host.querySelector('#prErrors'), html`${errNote}${offNote}`);
 }
 
 async function load() {
   data.loading = true; paint();
   const platforms = filters.platform ? [filters.platform] : undefined;
   const r = await call('pulls:list', { repoIds: filters.repo ? [filters.repo] : undefined, platforms, state: filters.state }, { silent: true });
-  data = { items: r.items || [], errors: r.errors || (r.ok === false ? [{ repoName: '—', platform: 'github', error: r.error }] : []), loaded: true, loading: false };
+  data = { items: r.items || [], errors: r.errors || (r.ok === false ? [{ repoName: '—', platform: 'github', error: r.error }] : []), disabled: r.disabled || [], loaded: true, loading: false };
   selected = new Set([...selected].filter((k) => byKey(k)));
   paint();
 }

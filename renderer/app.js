@@ -34,10 +34,11 @@ function renderAccount() {
   const a = state.accounts;
   const gh = a && a.github && a.github.ok ? a.github.login : null;
   const gl = a ? Object.values(a.gitlab || {}).find((x) => x.ok) : null;
+  const glHosts = a ? Object.values(a.gitlab || {}) : [];
   const name = document.getElementById('accountName'), sub = document.getElementById('accountSub'), av = document.getElementById('accountAvatar');
   if (!a) return;
   name.textContent = gh || (gl && gl.login) || 'Not connected';
-  sub.textContent = [gh ? `GitHub: ${gh}` : 'GitHub: not logged in', Object.keys(a.gitlab || {}).length ? (gl ? `GitLab: ${gl.login}` : 'GitLab: token not set') : null].filter(Boolean).join(' · ');
+  sub.textContent = [gh ? `GitHub: ${gh}` : 'GitHub: not logged in', glHosts.length ? (gl ? `GitLab: ${gl.login}` : glHosts.some((x) => x.git && x.git.ok) ? 'GitLab: via git' : 'GitLab: not connected') : null].filter(Boolean).join(' · ');
   av.textContent = initials(gh || (gl && gl.login) || '?');
 }
 
@@ -62,7 +63,7 @@ async function boot() {
   bus.on('accounts', renderAccount);
   bus.on('loading', renderRefreshState);
   bus.on('status', () => { renderPrBadge(); renderRefreshState(); });
-  document.getElementById('refreshBtn').addEventListener('click', () => { refreshAll({ fetch: true }); loadAccounts(); });
+  document.getElementById('refreshBtn').addEventListener('click', () => { refreshAll({ fetch: true }); loadAccounts({ fresh: true }); });
   window.addEventListener('hashchange', route);
   bus.on('repos', route); // daftar repo berubah -> render ulang tampilan aktif
   await loadRepos(); // memicu 'repos' -> route()
