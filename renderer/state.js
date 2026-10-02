@@ -10,9 +10,11 @@ export const bus = {
 export const state = {
   repos: [], status: {}, parity: {}, pulls: {}, loading: new Set(), accounts: null,
   loadingAll: false, lastRefresh: null, openPrs: null,
+  acct: { list: [], loaded: false }, // akun (GitHub/GitLab/lainnya) buatan pengguna, bukan login gh/git
 };
 
 export const repoById = (id) => state.repos.find((r) => r.id === id) || null;
+export const acctById = (id) => state.acct.list.find((a) => a.id === id) || null;
 
 export async function loadRepos() {
   const r = await call('repos:list');
@@ -38,6 +40,15 @@ export async function loadAccounts({ fresh = false } = {}) {
   state.accounts = r.ok ? r : { github: { ok: false, error: r.error }, gitlab: {} };
   bus.emit('accounts');
   return state.accounts;
+}
+
+// daftar akun; setiap perubahan memancarkan event 'acct'
+export async function loadAcct() {
+  const r = await call('acct:list', {}, { silent: true });
+  if (r && r.ok) state.acct.list = r.accounts || [];
+  state.acct.loaded = true;
+  bus.emit('acct');
+  return state.acct.list;
 }
 
 // pembaruan bertahap dari proses utama saat refresh berjalan

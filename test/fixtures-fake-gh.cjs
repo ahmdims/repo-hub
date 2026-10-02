@@ -25,6 +25,7 @@ const [a, b] = args;
 if (a === 'pr' && b === 'list' && flag('-R') && flag('-R') !== st.repo) { out([]); process.exit(0); } // repo lain: tidak punya PR
 
 if (a === 'api' && b === 'user') { out(st.viewer); }
+else if (a === 'auth' && b === 'status') { process.stdout.write(`github.com\n  ✓ Logged in to github.com account ${st.viewer} (keyring)\n  - Active account: true\n`); }
 else if (a === 'api' && /\/deployments\?/.test(b)) { out((st.deployments || []).map((d) => ({ id: d.id, environment: d.environment }))); }
 else if (a === 'api' && /\/deployments\/\d+\/statuses/.test(b)) { const id = Number(b.match(/deployments\/(\d+)/)[1]); const d = (st.deployments || []).find((x) => x.id === id); out(d ? [{ state: d.state, environment_url: d.url }] : []); }
 else if (a === 'repo' && b === 'view') { out({ nameWithOwner: st.repo, defaultBranchRef: { name: 'master' }, viewerPermission: st.permission || 'ADMIN', isPrivate: true }); }

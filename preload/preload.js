@@ -7,6 +7,8 @@ const INVOKE = new Set([
   'app:info', 'accounts', 'settings:get', 'settings:set', 'gitlab:saveToken', 'gitlab:clearToken',
   'repos:list', 'repos:detect', 'repos:scan', 'repos:add', 'repos:update', 'repos:remove', 'repos:branches', 'repos:test',
   'status:refresh', 'git:push', 'git:mirror', 'git:fetch', 'git:pull',
+  'acct:list', 'acct:detect', 'acct:save', 'acct:remove', 'acct:assign', 'acct:setRepo', 'acct:check',
+  'ssh:publicKey', 'ssh:hostKey', 'ssh:trustHost', 'ssh:createKey', 'ssh:addHost', 'repos:useSsh',
   'pulls:list', 'pulls:detail', 'pulls:diff', 'pulls:review', 'pulls:comment', 'pulls:merge', 'pulls:close', 'pulls:create',
   'release:plan', 'release:run', 'release:cancel',
   'activity:list', 'activity:clear',

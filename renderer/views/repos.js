@@ -1,10 +1,15 @@
 // Repositori: daftar repo yang dikelola + tambah (dari folder / pindai folder induk), ubah, uji koneksi, hapus.
 import { html, esc, icon, badge, plural, mount as setHtml } from '../lib/h.js';
 import { dialog, confirmDialog, notify, call, busy } from '../lib/ui.js';
-import { state, bus, loadRepos, refreshAll, repoById } from '../state.js';
+import { state, bus, loadRepos, loadAcct, refreshAll, repoById, acctById } from '../state.js';
+import { PROVIDER_LABEL, providerIcon, isSshUrl, sshBadge, accountsForRemote, resolveRemote, sshUrlFor, redactUrl, mountTrust } from '../lib/ssh.js';
 
 export const title = 'Repositories';
 let host = null, offs = [];
+
+const PLATFORMS = ['github', 'gitlab'];
+// baris kecil di bawah remote pada tabel: akun + HTTPS/SSH
+const remoteMeta = (remote) => { const a = remote.account ? acctById(remote.account) : null; return html`<p class="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-slate-500">${a ? html`<span class="truncate" title="${a.host}">${a.label}</span>` : html`<span class="text-slate-400">No account</span>`}${sshBadge(remote.url)}</p>`; };
 
 const stepsText = (r) => r.flow.steps.map((s) => `${s.from === '$BRANCH' ? 'release branch' : s.from} → ${s.to}`).join('  ›  ');
 
@@ -22,8 +27,8 @@ function render() {
       </tr></thead><tbody>${state.repos.map((r, i) => html`<tr data-id="${r.id}">
         <td class="table-col-num">${i + 1}</td>
         <td><span class="block font-medium text-slate-800">${r.name}</span><p class="mt-0.5 max-w-[15rem] truncate text-xs text-slate-400" title="${r.path}">${r.path}</p></td>
-        <td>${r.github ? html`<span class="inline-flex items-center gap-1.5 text-sm text-slate-700">${icon('github-logo', 'h-4 w-4 text-slate-400')}${r.github.repo}</span>` : html`<span class="text-xs text-slate-400">—</span>`}</td>
-        <td>${r.gitlab ? html`<span class="inline-flex items-center gap-1.5 text-sm text-slate-700">${icon('gitlab-logo', 'h-4 w-4 text-slate-400')}${r.gitlab.path}</span><p class="text-xs text-slate-400">${r.gitlab.baseUrl.replace(/^https?:\/\//, '')}</p>` : html`<span class="text-xs text-slate-400">—</span>`}</td>
+        <td>${r.github ? html`<span class="inline-flex items-center gap-1.5 text-sm text-slate-700">${icon('github-logo', 'h-4 w-4 text-slate-400')}${r.github.repo}</span>${remoteMeta(r.github)}` : html`<span class="text-xs text-slate-400">—</span>`}</td>
+        <td>${r.gitlab ? html`<span class="inline-flex items-center gap-1.5 text-sm text-slate-700">${icon('gitlab-logo', 'h-4 w-4 text-slate-400')}${r.gitlab.path}</span><p class="text-xs text-slate-400">${r.gitlab.baseUrl.replace(/^https?:\/\//, '')}</p>${remoteMeta(r.gitlab)}` : html`<span class="text-xs text-slate-400">—</span>`}</td>
         <td class="max-w-[14rem]"><p class="truncate text-xs text-slate-600" title="${stepsText(r)}">${stepsText(r)}</p><p class="mt-0.5 text-xs text-slate-400">${r.flow.method}${r.flow.mirror ? ' · mirror' : ''}${r.flow.waitChecks ? ' · wait for checks' : ''}</p></td>
         <td class="table-col-actions"><div class="flex items-center justify-end gap-1.5">
           <button type="button" class="btn-outline btn-sm max-2xl:w-8 max-2xl:px-0" data-act="test" title="Test GitHub/GitLab connection" aria-label="Test connection for ${r.name}">${icon('plug')}<span class="hidden 2xl:inline">Test</span></button>
@@ -117,6 +122,35 @@ export function openRepoForm({ repo, suggest }) {
   const v = (x) => x == null ? '' : x;
   const steps = src.flow.steps;
   const stepRow = (s) => html`<div class="flex items-center gap-2" data-step><input class="input h-9 flex-1 font-mono text-xs" data-from value="${s.from}" placeholder="$BRANCH or branch name" aria-label="From" />${icon('arrow-right', 'h-4 w-4 shrink-0 text-slate-400')}<input class="input h-9 flex-1 font-mono text-xs" data-to value="${s.to}" placeholder="target branch" aria-label="To" /><button type="button" class="btn-outline btn-sm w-8 px-0" data-del-step aria-label="Remove step">${icon('x', 'h-3.5 w-3.5')}</button></div>`;
+  // data remote terbaru (setelah Use SSH / Back to HTTPS isinya berubah di penyimpanan)
+  const cur = () => (editing ? repoById(repo.id) || repo : null);
+  const chosen = {}; // platform -> id akun terpilih ('' = Unassigned)
+  if (editing) for (const p of PLATFORMS) if (repo[p]) chosen[p] = repo[p].account && acctById(repo[p].account) ? repo[p].account : '';
+  const remoteName = (r, p) => (p === 'github' ? r.github.repo : r.gitlab.path);
+  function remoteRow(r, p) {
+    const rem = r[p], isSsh = isSshUrl(rem.url), sel = chosen[p] || '';
+    const picked = sel ? acctById(sel) : null;
+    const opts = accountsForRemote(state.acct.list, p, rem.url);
+    if (picked && !opts.includes(picked)) opts.push(picked);
+    const name = PROVIDER_LABEL[p];
+    return html`<div class="rounded-xl border border-border p-3.5" data-remote="${p}">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <p class="flex min-w-0 items-center gap-2 text-sm font-medium text-slate-800">${icon(providerIcon(p), 'h-4 w-4 shrink-0 text-slate-400')}<span class="truncate font-mono text-xs">${remoteName(r, p)}</span><span data-proto>${sshBadge(rem.url)}</span></p>
+        <div class="flex flex-wrap gap-2">
+          ${isSsh ? '' : html`<button type="button" class="btn-outline btn-sm" data-use-ssh="${p}" ${picked ? '' : 'disabled'} title="${picked ? `Switch this remote to SSH with ${picked.label}` : 'Choose an account first'}">${icon('lock-key', 'h-3.5 w-3.5')}Use SSH</button>`}
+          ${rem.prevUrl ? html`<button type="button" class="btn-outline btn-sm" data-back-https="${p}" title="Go back to ${redactUrl(rem.prevUrl)}">${icon('arrow-u-up-left', 'h-3.5 w-3.5')}Back to HTTPS</button>` : ''}
+        </div>
+      </div>
+      <div class="mt-3 grid gap-3 sm:grid-cols-2 sm:items-end">
+        <div><label class="form-label" for="f-acct-${p}">${name} account</label><select id="f-acct-${p}" name="acct-${p}" class="input" data-acct-select="${p}"><option value="">Unassigned</option>${opts.map((a) => html`<option value="${a.id}" ${a.id === sel ? 'selected' : ''}>${a.label} · ${a.host}</option>`)}</select></div>
+        <p class="min-w-0 break-all font-mono text-xs text-slate-500" title="${redactUrl(rem.url)}" data-remote-url>${redactUrl(rem.url)}</p>
+      </div>
+      ${opts.length ? '' : html`<p class="form-hint mt-2">No ${name} account matches this remote yet. <a href="#/accounts" class="font-medium text-primary-600 hover:underline" data-dialog-close>Add one on the Accounts page.</a></p>`}
+    </div>`;
+  }
+  const connHtml = () => { const r = cur(); const rows = PLATFORMS.filter((p) => r[p]).map((p) => remoteRow(r, p)); return rows.length ? html`<div class="space-y-3">${rows}</div>` : ''; };
+  const renderConn = () => { const el = d.$('[data-conn]'); if (el) el.innerHTML = connHtml().s; };
+
   const field = (label, name, value, { hint, ph, mono } = {}) => html`<div><label class="form-label" for="f-${name}">${label}</label><input id="f-${name}" name="${name}" class="input ${mono ? 'font-mono text-xs' : ''}" value="${v(value)}" placeholder="${ph || ''}" />${hint ? html`<p class="form-hint">${hint}</p>` : ''}</div>`;
   const d = dialog({
     title: editing ? `Edit ${repo.name}` : 'Add repo', size: 'modal-xl',
@@ -132,6 +166,9 @@ export function openRepoForm({ repo, suggest }) {
         <div><label class="form-label" for="f-primary">Primary platform (PR/release)</label><select id="f-primary" name="primary" class="input"><option value="github" ${src.primary !== 'gitlab' ? 'selected' : ''}>GitHub</option><option value="gitlab" ${src.primary === 'gitlab' ? 'selected' : ''}>GitLab</option></select></div>
         ${field('GitLab: project path', 'glPath', src.gitlab && src.gitlab.path, { ph: 'group/project', mono: true })}
       </div></section>
+      <section data-conn-section><p class="mb-1 text-sm font-semibold text-slate-800">Accounts and access</p>
+        <p class="form-hint mb-3">${editing ? 'Choose the account each remote belongs to. SSH is optional; HTTPS keeps working with your existing git login. The account is applied when you save; Use SSH and Back to HTTPS apply right away.' : 'Accounts are assigned automatically from the host and owner of each remote. After adding the repo, open Edit to change the account or switch a remote to SSH.'}</p>
+        <div data-conn>${editing ? connHtml() : ''}</div></section>
       <section><p class="mb-3 text-sm font-semibold text-slate-800">Branch</p><div class="grid gap-4 sm:grid-cols-2">
         ${field('Default branch', 'defaultBranch', src.defaultBranch, { mono: true })}
         ${field('Deploy branch (optional)', 'deployBranch', src.deployBranch, { ph: 'karirkit/vercel', mono: true })}
@@ -154,10 +191,19 @@ export function openRepoForm({ repo, suggest }) {
           ${field('GitLab git URL', 'glUrl', src.gitlab && src.gitlab.url, { hint: 'Leave empty to use the base URL + project path.', mono: true })}
         </div></details>
       <p class="hidden rounded-lg bg-danger-50 p-3 text-sm text-danger-700" data-error></p>
-    </form>`,
-    footer: html`<button type="button" class="btn-outline btn-md" data-dialog-close>Cancel</button><button type="button" class="btn-primary btn-md" data-save>${icon('check')}${editing ? 'Save changes' : 'Add repo'}</button>`,
+    </form><div class="hidden space-y-4" data-panel></div>`,
+    footer: html`<div class="contents" data-foot-main><button type="button" class="btn-outline btn-md" data-dialog-close>Cancel</button><button type="button" class="btn-primary btn-md" data-save>${icon('check')}${editing ? 'Save changes' : 'Add repo'}</button></div><div class="hidden" data-foot-panel></div>`,
   });
   const form = d.$('[data-form]');
+  const panel = d.$('[data-panel]'), footMain = d.$('[data-foot-main]'), footPanel = d.$('[data-foot-panel]');
+  let panelTitle = '';
+  // panel di dalam dialog yang sama (formulir disembunyikan, bukan dibuang) supaya isian yang belum disimpan tidak hilang
+  const showPanel = (on) => {
+    form.classList.toggle('hidden', on); panel.classList.toggle('hidden', !on);
+    footMain.classList.toggle('hidden', on); footMain.classList.toggle('contents', !on);
+    footPanel.classList.toggle('hidden', !on); footPanel.classList.toggle('contents', on);
+    d.setTitle(on ? panelTitle : editing ? `Edit ${repo.name}` : 'Add repo');
+  };
   form.addEventListener('submit', (e) => e.preventDefault());
   const val = (n) => (form.elements[n] ? form.elements[n].value.trim() : '');
   const list = (n) => val(n).split(',').map((x) => x.trim()).filter(Boolean);
@@ -168,20 +214,103 @@ export function openRepoForm({ repo, suggest }) {
     const det = await call('repos:detect', { path: p }); if (!det.ok) return;
     form.elements.path.value = det.root;
   });
+  /* ---- akun + SSH per remote ---- */
+  form.addEventListener('change', (e) => { const s = e.target.closest('[data-acct-select]'); if (s) { chosen[s.dataset.acctSelect] = s.value; renderConn(); } });
+  form.addEventListener('click', (e) => {
+    const use = e.target.closest('[data-use-ssh]'), back = e.target.closest('[data-back-https]');
+    if (use && !use.disabled) switchRemote(use.dataset.useSsh, false);
+    if (back) switchRemote(back.dataset.backHttps, true);
+  });
+
+  // Use SSH / Back to HTTPS: pratinjau + konfirmasi di panel; URL remote di .git/config ditulis ulang hanya setelah dikonfirmasi
+  function switchRemote(p, revert) {
+    const r = cur(), rem = r[p];
+    const acct = acctById(revert ? (rem.account || chosen[p]) : chosen[p]) || null;
+    if (!revert && !acct) return notify('warning', 'Choose an account first.');
+    const name = PROVIDER_LABEL[p];
+    const path = resolveRemote(rem.url, state.acct.list).path;
+    const from = redactUrl(rem.url);
+    const to = revert ? redactUrl(rem.prevUrl) : sshUrlFor(acct, path);
+    const title = revert ? `Back to HTTPS · ${name}` : `Use SSH · ${name}`;
+    panelTitle = title;
+    const lines = revert
+      ? ["The remote URL in this repo's git config is rewritten back to the HTTPS URL it had before.", 'Only url / pushurl entries that match the current URL are changed; other remotes are not touched.', 'The account stays assigned.']
+      : ['Repo Hub first checks that it can read this repository over SSH (git ls-remote). If that fails, nothing is changed.', "Then url / pushurl entries in this repo's git config that match the current URL are rewritten; other remotes are not touched.", 'The previous URL is remembered, so you can switch back with Back to HTTPS.'];
+    const confirmView = (error) => {
+      panel.innerHTML = html`<p class="text-sm text-slate-600">${revert ? html`Switch the ${name} remote of <b>${repo.name}</b> back to HTTPS.` : html`Switch the ${name} remote of <b>${repo.name}</b> to SSH.`}</p>
+        <dl class="grid gap-x-4 gap-y-1.5 rounded-xl border border-border p-3.5 text-xs sm:grid-cols-[auto_1fr]"><dt class="text-slate-500">From</dt><dd class="break-all font-mono text-slate-700" data-plan-from>${from}</dd><dt class="text-slate-500">To</dt><dd class="break-all font-mono font-medium text-slate-900" data-plan-to>${to}</dd>${acct ? html`<dt class="text-slate-500">Account</dt><dd class="text-slate-700">${acct.label} · ${acct.host}</dd>` : ''}</dl>
+        <ul class="list-disc space-y-1 pl-5 text-xs text-slate-600">${lines.map((l) => html`<li>${l}</li>`)}</ul>
+        <p class="${error ? '' : 'hidden'} rounded-lg bg-danger-50 p-3 text-sm text-danger-700" data-panel-error>${error || ''}</p>`.s;
+      footPanel.innerHTML = html`<button type="button" class="btn-outline btn-md" data-panel-cancel>Cancel</button><button type="button" class="btn-primary btn-md" data-panel-go>${icon(revert ? 'arrow-u-up-left' : 'lock-key')}${revert ? 'Switch back to HTTPS' : 'Switch to SSH'}</button>`.s;
+      footPanel.querySelector('[data-panel-cancel]').addEventListener('click', () => showPanel(false));
+      footPanel.querySelector('[data-panel-go]').addEventListener('click', run);
+    };
+    const resultView = (res) => {
+      const n = res.replaced || 0;
+      panel.innerHTML = html`<div class="flex items-start gap-3 rounded-xl bg-success-50 p-3.5 text-sm text-success-700" data-panel-ok>${icon('check-circle', 'mt-0.5 h-5 w-5 shrink-0')}<div class="min-w-0"><p class="font-medium">${revert ? 'The remote uses HTTPS again.' : 'The remote now uses SSH.'}</p><p class="mt-1 break-all font-mono text-xs"><span data-res-from>${res.from}</span> → <span data-res-to>${res.to}</span></p><p class="mt-1 text-xs">${n} ${plural(n, 'entry', 'entries')} updated in this repo's git config.</p></div></div>
+        ${res.note ? html`<div class="callout-warning flex items-start gap-3">${icon('warning', 'mt-0.5 h-4 w-4 shrink-0 text-warning-600')}<p class="text-sm text-slate-600" data-res-note>${res.note}</p></div>` : ''}`.s;
+      footPanel.innerHTML = html`<button type="button" class="btn-primary btn-md" data-panel-done>Done</button>`.s;
+      footPanel.querySelector('[data-panel-done]').addEventListener('click', () => showPanel(false));
+    };
+    const run = async () => {
+      panel.innerHTML = html`<p class="flex items-center gap-2 text-sm text-slate-500">${icon('circle-notch', 'h-4 w-4 animate-spin')}${revert ? 'Updating the remote…' : 'Checking SSH access, then updating the remote…'}</p>`.s;
+      footPanel.innerHTML = '';
+      d.lock(true);
+      const res = await call('repos:useSsh', { repoId: repo.id, platform: p, accountId: acct ? acct.id : undefined, revert, confirmed: true }, { silent: true });
+      d.lock(false);
+      if (res.ok) {
+        await Promise.all([loadRepos(), loadAcct()]);
+        const fresh = cur();
+        if (fresh[p] && fresh[p].account && acctById(fresh[p].account)) chosen[p] = fresh[p].account;
+        const urlInput = form.elements[p === 'github' ? 'ghUrl' : 'glUrl']; if (urlInput && fresh[p]) urlInput.value = fresh[p].url;
+        renderConn();
+        if (res.unchanged) { showPanel(false); return notify('warning', 'The remote already uses this URL; nothing was changed.'); }
+        return resultView(res);
+      }
+      if (res.code === 'HOST_KEY' && acct) {
+        panel.innerHTML = html`<div class="callout-warning flex items-start gap-3">${icon('shield-warning', 'mt-0.5 h-4 w-4 shrink-0 text-warning-600')}<div class="min-w-0 text-sm text-slate-600"><p class="font-medium text-slate-800">${acct.host} is not trusted yet</p><p class="mt-1" data-panel-error>${res.error}</p><p class="mt-1">Nothing was changed. Review the host key and trust it, then Repo Hub tries again.</p></div></div>`.s;
+        footPanel.innerHTML = html`<button type="button" class="btn-outline btn-md" data-panel-cancel>Cancel</button><button type="button" class="btn-primary btn-md" data-panel-review>${icon('shield-check')}Review host key</button>`.s;
+        footPanel.querySelector('[data-panel-cancel]').addEventListener('click', () => showPanel(false));
+        footPanel.querySelector('[data-panel-review]').addEventListener('click', async () => {
+          d.setTitle(`Review host key · ${acct.host}`);
+          const trusted = await mountTrust(panel, footPanel, { host: acct.host, port: acct.ssh && acct.ssh.port, provider: acct.provider });
+          d.setTitle(title);
+          if (trusted) run(); else confirmView();
+        });
+        return;
+      }
+      confirmView(res.error);
+    };
+    showPanel(true);
+    confirmView();
+  }
+
   d.$('[data-save]').addEventListener('click', async (e) => {
     const gh = val('github'), glBase = val('glBase'), glPath = val('glPath');
+    const fresh = cur() || {}; // remote yang sudah ada disalin utuh: repos:update MENGGANTI objek github/gitlab, jadi account/prevUrl harus ikut
     const payload = {
       name: val('name'), path: val('path'), primary: val('primary'), defaultBranch: val('defaultBranch'), deployBranch: val('deployBranch'),
       warnBranches: list('warnBranches'), ignoreRefs: list('ignoreRefs'),
-      github: gh ? { repo: gh, url: val('ghUrl') } : null,
-      gitlab: glBase || glPath ? { baseUrl: glBase, path: glPath, url: val('glUrl') } : null,
+      github: gh ? { ...(fresh.github || {}), repo: gh, url: val('ghUrl') } : null,
+      gitlab: glBase || glPath ? { ...(fresh.gitlab || {}), baseUrl: glBase, path: glPath, url: val('glUrl') } : null,
       flow: { steps: d.$$('[data-step]').map((s) => ({ from: s.querySelector('[data-from]').value.trim(), to: s.querySelector('[data-to]').value.trim() })).filter((s) => s.from && s.to), method: val('method'), waitChecks: form.elements.waitChecks.checked, mirror: form.elements.mirror.checked, checkDeployments: form.elements.checkDeployments.checked },
     };
     const err = d.$('[data-error]');
     await busy(e.currentTarget, async () => {
       const res = editing ? await call('repos:update', { id: repo.id, patch: payload }, { silent: true }) : await call('repos:add', { repo: payload }, { silent: true });
       if (!res.ok) { err.textContent = res.error; err.classList.remove('hidden'); return; }
-      d.close(true); await loadRepos();
+      // akun dipilih lewat acct:setRepo (memeriksa host akun = host remote)
+      const problems = [];
+      if (editing) for (const p of PLATFORMS) {
+        const now = (res.repo[p] && res.repo[p].account) || '';
+        if (res.repo[p] && (chosen[p] || '') !== now) {
+          const s = await call('acct:setRepo', { repoId: repo.id, platform: p, accountId: chosen[p] || null }, { silent: true });
+          if (!s.ok) problems.push(`${PROVIDER_LABEL[p]} account: ${s.error}`);
+        }
+      }
+      await Promise.all([loadRepos(), loadAcct()]);
+      if (problems.length) { err.textContent = `The settings were saved, but ${problems.join(' ')}`; err.classList.remove('hidden'); return; }
+      d.close(true);
       notify('success', editing ? 'Settings saved.' : `"${res.repo.name}" added.`);
       refreshAll({ fetch: false, ids: [res.repo.id] });
     });

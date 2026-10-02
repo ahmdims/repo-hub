@@ -1,6 +1,6 @@
 {
   "name": "repo-hub",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "Desktop GUI to push, merge, review, and release across many repos (GitHub + GitLab) at once, built with the KarirKit design system.",
   "author": "Ahmad Dimas <ahmad.dimas@sevima.id>",
@@ -11,8 +11,9 @@
     "watch:css": "node scripts/build-assets.mjs --watch",
     "start": "node scripts/build-assets.mjs && electron .",
     "test": "node test/run-all.cjs",
-    "test:ui": "node test/ui.e2e.cjs && node test/ui.notoken.e2e.cjs",
-    "package": "node scripts/build-assets.mjs && node scripts/package.mjs"
+    "test:ui": "node test/ui.e2e.cjs && node test/ui.notoken.e2e.cjs && node test/ui.accounts.e2e.cjs",
+    "package": "node scripts/build-assets.mjs && node scripts/package.mjs",
+    "release": "node scripts/release.mjs"
   },
   "devDependencies": {
     "@electron/packager": "^18.3.6",

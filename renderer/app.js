@@ -1,16 +1,17 @@
 // Titik masuk UI: router berbasis hash + inisialisasi kerangka.
 import { initShell, setActiveNav } from './lib/shell.js';
-import { state, bus, loadRepos, refreshAll, loadAccounts } from './state.js';
+import { state, bus, loadRepos, refreshAll, loadAccounts, loadAcct } from './state.js';
 import { call } from './lib/ui.js';
 import { initials } from './lib/h.js';
 import * as dashboard from './views/dashboard.js';
 import * as pulls from './views/pulls.js';
 import * as release from './views/release.js';
 import * as repos from './views/repos.js';
+import * as accounts from './views/accounts.js';
 import * as activity from './views/activity.js';
 import * as settings from './views/settings.js';
 
-const ROUTES = { dasbor: dashboard, 'pull-request': pulls, rilis: release, repositori: repos, aktivitas: activity, pengaturan: settings };
+const ROUTES = { dasbor: dashboard, 'pull-request': pulls, rilis: release, repositori: repos, accounts, aktivitas: activity, pengaturan: settings };
 const view = document.getElementById('view');
 let active = null;
 
@@ -63,9 +64,10 @@ async function boot() {
   bus.on('accounts', renderAccount);
   bus.on('loading', renderRefreshState);
   bus.on('status', () => { renderPrBadge(); renderRefreshState(); });
-  document.getElementById('refreshBtn').addEventListener('click', () => { refreshAll({ fetch: true }); loadAccounts({ fresh: true }); });
+  document.getElementById('refreshBtn').addEventListener('click', () => { refreshAll({ fetch: true }); loadAccounts({ fresh: true }); loadAcct(); });
   window.addEventListener('hashchange', route);
   bus.on('repos', route); // daftar repo berubah -> render ulang tampilan aktif
+  await loadAcct(); // akun dimuat sebelum tampilan pertama supaya kolom Account langsung terisi
   await loadRepos(); // memicu 'repos' -> route()
   loadAccounts();
   refreshAll({ fetch: false }); // status cepat dulu; fetch penuh lewat tombol Segarkan

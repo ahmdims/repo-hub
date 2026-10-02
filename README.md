@@ -12,6 +12,7 @@ Think of the GitHub/GitLab pages you already know, but one screen for all of you
 | **Pull Requests** | GitHub PRs and GitLab MRs from all repos in one table. Filter, search, open details (checks, commits, diff, discussion), **Approve**, **Request changes**, comment, **Merge**, close, and **Create PR/MR**. Bulk approve and merge. |
 | **Release** | A one-click flow, for example `karirkit/<version>` → `master` → `karirkit/vercel`: create or reuse the PR, wait for green checks, merge, mirror to GitLab, and watch the deployment. Stops at the first failure and can be cancelled. |
 | **Repositories** | The repos you manage, **fully editable by you**: add from a folder, scan a parent folder, edit, or remove from the list. Each repo has its own release flow. |
+| **Accounts** | Several accounts per host (for example a personal and a work GitHub account) and across GitHub, GitLab, or other git hosts. Detects accounts from `~/.ssh`, `gh`, and your repos; shows who is logged in through `ssh -T` (no token needed); creates a new SSH key and alias for a new account; switches a repo remote between HTTPS and SSH. The Dashboard groups and filters repos by account. |
 | **Activity** | A log of every action (push, merge, review, release…). Tokens are never logged. |
 | **Settings** | GitHub connection (through `gh`), GitLab token per host, and the git buffer size. |
 
@@ -28,6 +29,15 @@ npm run package    # standalone app at dist/Repo Hub-win32-x64/repo-hub.exe
 ```
 
 For a step-by-step walkthrough (running the app and connecting GitHub and GitLab), see [TUTORIAL.md](TUTORIAL.md).
+
+### Releases and tags
+
+Every `.exe` build gets its own release tag, `v<version>` (the version in `package.json`), pointing at the commit the `.exe` was built from.
+
+1. On a branch, raise `version` in `package.json` and merge it to `master` through a PR.
+2. On an up-to-date, clean `master`, run `npm run release -- --push`. It builds the `.exe`, creates an annotated tag with the build details and the list of changes, and pushes only that tag. `npm run release -- --dry-run` runs the checks and shows the plan without building.
+
+The script refuses to run off `master`, with uncommitted changes, when `master` differs from `origin/master`, or when the tag already exists. Tags are never moved or deleted.
 
 ### Signing in
 
@@ -53,6 +63,7 @@ Options: merge method (`merge`/`squash`/`rebase`), wait for green checks, mirror
 
 - **No force-push**, **no branch or tag deletion**, **no folder deletion**. Removing a repo from the list only removes the entry in the app.
 - **Pull is fast-forward only.** It never creates a merge commit, rebases, resets, or overwrites changes. It refuses when tracked files have uncommitted changes, the branch has no upstream, or the history has diverged; untracked files are left alone.
+- **`~/.ssh` is handled with strict limits.** The app reads `config`, `known_hosts`, and **public** keys only; private keys are never opened. Writing happens only from explicit, confirmed actions: it creates a **new** key (an existing one is never overwritten), appends one `Host` block after backing up `config` as `config.bak-<timestamp>`, and adds a host key to `known_hosts` only when its fingerprint equals the one you reviewed. Nothing in `~/.ssh` is ever deleted. Switching a remote to SSH first proves read access over SSH, and rewrites only the matching `remote.*.url` / `pushurl` entries.
 - Every action that changes something needs confirmation in the UI **and** is rejected by the main process if it arrives without `confirmed: true`.
 - GitLab mirroring only creates new refs or fast-forwards; an existing tag is never moved.
 - `git`/`gh` commands run without a shell (`execFile`); all ref names are validated.
@@ -62,7 +73,7 @@ Options: merge method (`merge`/`squash`/`rebase`), wait for green checks, mirror
 ## Structure
 
 ```
-main/       main process: git, GitHub (gh), GitLab (REST), release flow, storage, IPC
+main/       main process: git, GitHub (gh), GitLab (REST), accounts + ~/.ssh, release flow, storage, IPC
 preload/    a narrow bridge to the renderer
 renderer/   UI (HTML + ES modules), styled by the KarirKit design system
 src/        app.css, built by Tailwind into renderer/vendor/
@@ -80,4 +91,4 @@ The design system's own UI text is still Indonesian in a few places (table pagin
 
 ## Environment variables (for tests and debugging)
 
-`HUB_USER_DATA` (data folder), `HUB_GH_BIN` (replace `gh`), `HUB_POLL_MS` (check polling interval), `HUB_GITLAB_TOKEN`, `HUB_PICK_FOLDER` (skip the folder picker dialog).
+`HUB_USER_DATA` (data folder), `HUB_GH_BIN` (replace `gh`), `HUB_POLL_MS` (check polling interval), `HUB_GITLAB_TOKEN`, `HUB_PICK_FOLDER` (skip the folder picker dialog), `HUB_SSH_DIR` (use another folder instead of `~/.ssh`), `HUB_SSH_BIN` / `HUB_SSH_KEYSCAN_BIN` (replace `ssh` / `ssh-keyscan`, used by the tests).
