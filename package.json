@@ -1,0 +1,23 @@
+{
+  "name": "repo-hub",
+  "version": "0.1.0",
+  "private": true,
+  "description": "GUI desktop untuk push, merge, review, dan rilis ke banyak repo (GitHub + GitLab) sekaligus, dibangun dengan design system KarirKit.",
+  "author": "Ahmad Dimas <ahmad.dimas@sevima.id>",
+  "license": "UNLICENSED",
+  "main": "main/index.js",
+  "scripts": {
+    "build:css": "node scripts/build-assets.mjs",
+    "watch:css": "node scripts/build-assets.mjs --watch",
+    "start": "node scripts/build-assets.mjs && electron .",
+    "test": "node test/run-all.cjs",
+    "package": "node scripts/build-assets.mjs && node scripts/package.mjs"
+  },
+  "devDependencies": {
+    "@electron/packager": "^18.3.6",
+    "@foxtrot-sevima/karirkit": "file:../../SEVIMA/Foxtrot/design-system",
+    "@tailwindcss/cli": "^4.1.0",
+    "electron": "^44.5.1",
+    "tailwindcss": "^4.1.0"
+  }
+}

@@ -1,0 +1,43 @@
+@import "@foxtrot-sevima/karirkit/theme";
+@source "../renderer/**/*.{html,js}";
+
+/* Gaya khusus Repo Hub. Semua warna/ukuran memakai token KarirKit supaya mode gelap ikut otomatis. */
+@layer components {
+  /* ---- diff viewer ---- */
+  .diff-file { @apply overflow-hidden rounded-xl border border-border bg-surface; }
+  .diff-head { @apply flex cursor-pointer items-center gap-3 bg-neutral-50 px-4 py-2.5; list-style: none; }
+  .diff-head::-webkit-details-marker { display: none; }
+  .diff-table { @apply w-full border-collapse font-mono text-xs leading-5; }
+  .diff-table td { @apply align-top; }
+  .diff-no { @apply w-12 min-w-12 select-none px-2 text-right text-slate-400; }
+  .diff-sign { @apply w-5 select-none text-center text-slate-400; }
+  .diff-code { @apply whitespace-pre-wrap break-all pr-4 text-slate-800; }
+  .diff-hunk td { @apply bg-info-50 px-4 py-1 text-info-700; }
+  .diff-add { @apply bg-success-50; }
+  .diff-add .diff-sign { @apply font-semibold text-success-700; }
+  .diff-del { @apply bg-danger-50; }
+  .diff-del .diff-sign { @apply font-semibold text-danger-600; }
+  .diff-meta td { @apply px-4 text-slate-400; }
+
+  /* ---- langkah alur rilis ---- */
+  .step-card { @apply flex items-start gap-3 rounded-xl border border-border bg-surface p-4 transition-colors; }
+  .step-card[data-state="running"] { @apply border-primary-300 bg-primary-50/40; }
+  .step-card[data-state="done"] { @apply border-success-200 bg-success-50/40; }
+  .step-card[data-state="failed"] { @apply border-danger-200 bg-danger-50/40; }
+  .step-card[data-state="skipped"] { @apply border-warning-200 bg-warning-50/40; }
+  .step-dot { @apply flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-neutral-100 text-sm font-semibold text-slate-500; }
+  .step-card[data-state="running"] .step-dot { @apply bg-primary-100 text-primary-700; }
+  .step-card[data-state="done"] .step-dot { @apply bg-success-100 text-success-700; }
+  .step-card[data-state="failed"] .step-dot { @apply bg-danger-100 text-danger-700; }
+  .step-card[data-state="skipped"] .step-dot { @apply bg-warning-100 text-warning-700; }
+
+  /* konsol log: sengaja gelap di kedua tema agar terbaca seperti terminal */
+  .hub-console { max-height: 16rem; overflow-y: auto; border-radius: 0.75rem; background: #0f172a; color: #e2e8f0; padding: 0.875rem 1rem; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; line-height: 1.6; }
+  .hub-console .t { color: #64748b; }
+  .hub-console .ok { color: #4ade80; }
+  .hub-console .warn { color: #fbbf24; }
+  .hub-console .err { color: #f87171; }
+
+  .kbd-ref { @apply rounded-md bg-neutral-100 px-1.5 py-0.5 font-mono text-xs text-slate-700; }
+  .repo-row-loading { @apply opacity-60; }
+}

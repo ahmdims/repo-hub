@@ -1,0 +1,8 @@
+node_modules/
+dist/
+out/
+renderer/vendor/
+renderer/assets/
+*.log
+.DS_Store
+Thumbs.db

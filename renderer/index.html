@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'none'; base-uri 'none'; form-action 'none'" />
+<title>Repo Hub</title>
+<link rel="stylesheet" href="vendor/app.css" />
+<script src="boot.js"></script>
+</head>
+<body class="bg-shell font-sans text-slate-800 antialiased">
+
+<!-- Mobile overlay -->
+<div id="sidebarOverlay" class="fixed inset-0 z-40 hidden bg-slate-900/30 lg:hidden"></div>
+
+<!-- ============================= SIDEBAR ============================= -->
+<aside id="sidebar" class="fixed inset-y-0 left-0 z-50 flex w-[264px] -translate-x-full flex-col border-r border-slate-200/70 bg-white/90 backdrop-blur-md transition-[transform,width] duration-300 ease-in-out lg:translate-x-0">
+  <div class="sidebar-header flex h-16 items-center justify-between border-b border-slate-200/70 px-5">
+    <a href="#/dasbor" class="sidebar-logo-full flex items-center gap-2.5">
+      <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-600 text-white"><i class="kk kk-git-branch h-5 w-5"></i></span>
+      <span class="font-display text-lg font-bold text-slate-900">Repo Hub</span>
+    </a>
+    <a href="#/dasbor" class="sidebar-logo-mark hidden items-center">
+      <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-600 text-white"><i class="kk kk-git-branch h-5 w-5"></i></span>
+    </a>
+    <button id="closeSidebarBtn" class="text-slate-400 hover:text-slate-600 lg:hidden" aria-label="Tutup menu"><i class="kk kk-x h-5 w-5"></i></button>
+  </div>
+
+  <nav class="flex-1 space-y-6 overflow-y-auto scrollbar-none px-3 py-5">
+    <div>
+      <p class="nav-eyebrow mb-2">Kerja</p>
+      <div class="space-y-1">
+        <a href="#/dasbor" class="nav-item" data-nav="dasbor" data-tooltip-trigger data-tooltip-text="Dasbor" data-tooltip-side="right"><span class="nav-item-icon"><i class="kk kk-house h-5 w-5 shrink-0"></i></span><span class="sidebar-label">Dasbor</span></a>
+        <a href="#/pull-request" class="nav-item" data-nav="pull-request" data-tooltip-trigger data-tooltip-text="Pull Request" data-tooltip-side="right"><span class="nav-item-icon"><i class="kk kk-git-pull-request h-5 w-5 shrink-0"></i></span><span class="sidebar-label">Pull Request</span><span id="navPrBadge" class="badge-primary ml-auto hidden sidebar-label"></span></a>
+        <a href="#/rilis" class="nav-item" data-nav="rilis" data-tooltip-trigger data-tooltip-text="Rilis" data-tooltip-side="right"><span class="nav-item-icon"><i class="kk kk-rocket-launch h-5 w-5 shrink-0"></i></span><span class="sidebar-label">Rilis</span></a>
+      </div>
+    </div>
+    <div>
+      <p class="nav-eyebrow mb-2">Kelola</p>
+      <div class="space-y-1">
+        <a href="#/repositori" class="nav-item" data-nav="repositori" data-tooltip-trigger data-tooltip-text="Repositori" data-tooltip-side="right"><span class="nav-item-icon"><i class="kk kk-folders h-5 w-5 shrink-0"></i></span><span class="sidebar-label">Repositori</span></a>
+        <a href="#/aktivitas" class="nav-item" data-nav="aktivitas" data-tooltip-trigger data-tooltip-text="Aktivitas" data-tooltip-side="right"><span class="nav-item-icon"><i class="kk kk-clock-counter-clockwise h-5 w-5 shrink-0"></i></span><span class="sidebar-label">Aktivitas</span></a>
+        <a href="#/pengaturan" class="nav-item" data-nav="pengaturan" data-tooltip-trigger data-tooltip-text="Pengaturan" data-tooltip-side="right"><span class="nav-item-icon"><i class="kk kk-gear-six h-5 w-5 shrink-0"></i></span><span class="sidebar-label">Pengaturan</span></a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="space-y-1 border-t border-slate-200/70 px-3 py-3">
+    <button type="button" id="collapseSidebarBtn" class="nav-item sidebar-collapse-btn hidden w-full lg:flex" aria-label="Lipat atau buka menu" data-tooltip-trigger data-tooltip-text="Buka Menu" data-tooltip-side="right">
+      <span class="nav-item-icon"><i class="kk kk-caret-circle-left h-5 w-5 shrink-0 sidebar-collapse-icon"></i></span>
+      <span class="sidebar-label">Lipat Menu</span>
+    </button>
+  </div>
+</aside>
+
+<!-- ============================= MAIN COLUMN ============================= -->
+<div id="mainColumn" class="flex min-h-screen flex-col transition-[padding] duration-300 ease-in-out lg:pl-[264px]">
+  <header class="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-slate-200/70 bg-white/80 px-4 backdrop-blur-md sm:px-6">
+    <div class="flex min-w-0 flex-1 items-center gap-3">
+      <button id="openSidebarBtn" class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 lg:hidden" aria-label="Buka menu"><i class="kk kk-list h-5 w-5"></i></button>
+      <nav class="breadcrumb min-w-0 flex-nowrap" aria-label="Breadcrumb">
+        <a href="#/dasbor" class="breadcrumb-link shrink-0"><i class="kk kk-git-branch h-4 w-4"></i><span class="hidden sm:inline">Repo Hub</span></a>
+        <span class="breadcrumb-separator shrink-0"><i class="kk kk-caret-right h-3 w-3"></i></span>
+        <span class="breadcrumb-current min-w-0" aria-current="page"><span id="crumb" class="min-w-0 truncate">Dasbor</span></span>
+      </nav>
+    </div>
+    <div class="flex shrink-0 items-center gap-2 sm:gap-3">
+      <button type="button" id="refreshBtn" class="btn-outline btn-sm" title="Segarkan semua (fetch + status + PR/MR)"><i class="kk kk-arrows-clockwise h-4 w-4" id="refreshIcon"></i><span class="hidden md:inline">Segarkan</span></button>
+      <div role="radiogroup" aria-label="Tema tampilan" class="hidden items-center gap-0.5 rounded-xl bg-slate-100/80 p-1 sm:flex">
+        <button type="button" role="radio" aria-checked="false" data-theme-option="light" title="Terang" aria-label="Terang" class="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition-colors hover:text-slate-800"><i class="kk kk-sun h-4 w-4"></i></button>
+        <button type="button" role="radio" aria-checked="false" data-theme-option="dark" title="Gelap" aria-label="Gelap" class="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition-colors hover:text-slate-800"><i class="kk kk-moon h-4 w-4"></i></button>
+        <button type="button" role="radio" aria-checked="false" data-theme-option="system" title="Ikuti sistem" aria-label="Ikuti sistem" class="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition-colors hover:text-slate-800"><i class="kk kk-desktop h-4 w-4"></i></button>
+      </div>
+      <a href="#/pengaturan" id="accountChip" class="flex items-center gap-2.5 rounded-xl py-1.5 pl-1.5 pr-2 text-left transition-colors hover:bg-slate-100" title="Akun terhubung">
+        <span class="avatar h-9 w-9 shrink-0 text-sm" id="accountAvatar">?</span>
+        <span class="hidden min-w-0 sm:block">
+          <span class="block truncate text-sm font-semibold text-slate-800" id="accountName">Memeriksa akun…</span>
+          <span class="block truncate text-xs text-slate-400" id="accountSub">GitHub · GitLab</span>
+        </span>
+      </a>
+    </div>
+  </header>
+
+  <main id="view" class="mx-auto w-full flex-1 space-y-6 px-4 py-6 sm:px-6 sm:py-8" aria-live="polite"></main>
+
+  <footer>
+    <div class="mx-auto flex flex-col items-center justify-between gap-3 border-t border-slate-200/70 bg-surface px-4 py-4 text-xs text-slate-400 sm:flex-row sm:px-6">
+      <p>Repo Hub <span id="appVersion"></span> &middot; dibangun dengan design system KarirKit</p>
+      <p id="footStatus">Siap</p>
+    </div>
+  </footer>
+</div>
+
+<!-- Dialog serbaguna (konfirmasi, form, detail). Isinya diisi lewat renderer/lib/ui.js. -->
+<div class="modal-backdrop z-[60]" id="hubModal" aria-labelledby="hubModalTitle">
+  <div class="modal-panel modal-lg" id="hubModalPanel"></div>
+</div>
+
+<div id="tooltipFixed" class="tooltip-fixed" role="tooltip"></div>
+
+<script src="vendor/karirkit/theme.js"></script>
+<script src="vendor/karirkit/toast.js"></script>
+<script src="vendor/karirkit/modal.js"></script>
+<script src="vendor/karirkit/table.js"></script>
+<script type="module" src="app.js"></script>
+</body>
+</html>
