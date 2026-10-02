@@ -45,7 +45,7 @@ function createServices({ store, emit = () => {} }) {
 
   const handlers = {
     /* ------------------------------------------------------------ akun & pengaturan */
-    async 'accounts'() { return { ok: true, ...(await providers.accounts()) }; },
+    async 'accounts'(p = {}) { return { ok: true, ...(await providers.accounts({ fresh: !!p.fresh })) }; },
     async 'settings:get'() { return { ok: true, settings: store.settings(), canEncrypt: auth.canEncrypt() }; },
     async 'settings:set'(p) { const s = store.setSettings(p || {}); git.setNetwork({ postBuffer: s.postBuffer }); return { ok: true, settings: s }; },
     async 'gitlab:saveToken'(p) {

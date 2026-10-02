@@ -33,8 +33,8 @@ export async function refreshAll({ fetch = false, ids } = {}) {
   bus.emit('loading', false); bus.emit('status');
 }
 
-export async function loadAccounts() {
-  const r = await call('accounts', {}, { silent: true });
+export async function loadAccounts({ fresh = false } = {}) {
+  const r = await call('accounts', { fresh }, { silent: true });
   state.accounts = r.ok ? r : { github: { ok: false, error: r.error }, gitlab: {} };
   bus.emit('accounts');
   return state.accounts;

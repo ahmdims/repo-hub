@@ -1,6 +1,8 @@
 'use strict';
 // Satu antarmuka untuk PR (GitHub) dan MR (GitLab): daftar lintas repo, detail, review, merge, buat.
+const fs = require('node:fs');
 const github = require('./github');
+const { run } = require('./exec');
 const { createGitlab } = require('./gitlab');
 
 function createProviders({ store, auth }) {
@@ -16,6 +18,20 @@ function createProviders({ store, auth }) {
     const v = await github.viewer();
     ghViewer = { at: Date.now(), login: v.ok ? v.login : null };
     return ghViewer.login;
+  }
+
+  // Akses git ke remote GitLab (baca saja, tanpa mengunduh apa pun): status koneksi di Settings tanpa token/API.
+  const accessCache = new Map(); // url -> { at, res }
+  async function gitAccess(repo, fresh) {
+    const url = repo.gitlab.url;
+    const hit = accessCache.get(url);
+    if (!fresh && hit && Date.now() - hit.at < 60 * 1000) return hit.res;
+    const r = await run('git', ['ls-remote', '--heads', url, 'HEAD'], { cwd: repo.path, timeout: 30000 });
+    const line = (r.stderr || '').split('\n').map((l) => l.trim()).filter(Boolean).pop();
+    const msg = r.timedOut ? 'git did not respond (timed out).' : (line || 'git ls-remote failed');
+    const res = r.ok ? { ok: true } : { ok: false, error: msg.replace(/(\w+:\/\/)[^@/\s]+@/g, '$1').slice(0, 300) };
+    accessCache.set(url, { at: Date.now(), res });
+    return res;
   }
 
   async function mapLimit(items, n, fn) {
@@ -84,14 +100,16 @@ function createProviders({ store, auth }) {
       return { ok: true, item: res.items.find((p) => p.head === head && p.base === base) || null };
     },
     async deployments(repo, sha) { return repo.github ? github.deployments(repo.github.repo, sha) : { ok: true, items: [] }; },
-    async accounts() {
+    async accounts({ fresh = false } = {}) {
       const out = { github: await github.viewer(), gitlab: {} };
-      const hosts = new Map();
-      for (const r of store.repos()) if (r.gitlab) hosts.set(new URL(r.gitlab.baseUrl).host, r.gitlab.baseUrl);
-      for (const [host, base] of hosts) {
+      const hosts = new Map(); // host -> { base, repos }
+      for (const r of store.repos()) if (r.gitlab) { const h = new URL(r.gitlab.baseUrl).host; if (!hosts.has(h)) hosts.set(h, { base: r.gitlab.baseUrl, repos: [] }); hosts.get(h).repos.push(r); }
+      for (const [host, { base, repos }] of hosts) {
         const token = await auth.describe(host);
         const v = token.has ? await gitlab.viewer(base) : { ok: false, error: 'No token set.' };
-        out.gitlab[host] = { baseUrl: base, token, ...(v.ok ? { ok: true, login: v.login, name: v.name } : { ok: false, error: v.error }) };
+        const probe = repos.find((r) => fs.existsSync(r.path));
+        const git = probe ? { ...(await gitAccess(probe, fresh)), repo: probe.name } : { ok: false, error: 'No repo folder for this host was found on disk.' };
+        out.gitlab[host] = { baseUrl: base, token, git, ...(v.ok ? { ok: true, login: v.login, name: v.name } : { ok: false, error: v.error }) };
       }
       return out;
     },

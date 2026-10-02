@@ -34,7 +34,7 @@ For a step-by-step walkthrough (running the app and connecting GitHub and GitLab
 - **GitHub**: run `gh auth login` once. The app uses that `gh` login and does not store a GitHub token.
 - **GitLab**: create a *personal access token* (scope `api`) and paste it under **Settings → GitLab**. The token is stored encrypted by the operating system (Electron `safeStorage`). Alternatives: the `GITLAB_TOKEN` / `HUB_GITLAB_TOKEN` environment variable, or (optionally) a password already saved in the git credential manager, if it is actually a token.
 
-The GitLab token is optional. Without it, push, fetch, and mirroring still work through git (using your git login); only GitLab merge requests are unavailable, and the app shows them as "off" instead of as an error. A password stored in git is only used as a token if it looks like a GitLab token, so an account password is never sent to the API.
+The GitLab card in Settings has two rows. **Git access** (push, fetch, mirroring) works through your git login, the same way GitHub works through `gh`, and shows **Connected via git** when git can read the remote. **Merge requests** need a personal access token, which is optional: without it they show as **Off** instead of as an error. A password stored in git is only used as a token if it looks like a GitLab token, so an account password is never sent to the API.
 
 ### Adding repos
 

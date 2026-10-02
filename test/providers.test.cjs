@@ -216,6 +216,25 @@ test('GitLab: tanpa token = MR nonaktif (bukan galat), GitHub tetap jalan, dashb
   } finally { if (keep !== undefined) process.env.HUB_GITLAB_TOKEN = keep; rig.cleanup(); }
 });
 
+test('accounts: GitLab tanpa token tetap "terhubung" lewat git (seperti GitHub lewat gh); akses yang gagal dilaporkan jelas', async () => {
+  const rig = makeRig(); const bad = makeRig('rusak'); ghState();
+  const keep = process.env.HUB_GITLAB_TOKEN;
+  try {
+    delete process.env.HUB_GITLAB_TOKEN;
+    const { handlers, store } = setup(rig, { gitlabBase: 'https://notoken.invalid' }); // url remote = bare lokal yang bisa dibaca
+    store.setSettings({ useGitCredential: false });
+    store.addRepo({ name: 'Rusak', path: bad.work, gitlab: { baseUrl: 'https://broken.invalid', path: 'grp/rusak', url: path.join(bad.root, 'tidak-ada.git') } });
+    const a = await handlers['accounts']({ fresh: true });
+    const ok = a.gitlab['notoken.invalid'];
+    assert.equal(ok.token.has, false); assert.equal(ok.ok, false); // tanpa token: MR nonaktif
+    assert.deepEqual([ok.git.ok, ok.git.repo], [true, 'Demo']);   // tetapi akses git terbukti
+    const broken = a.gitlab['broken.invalid'];
+    assert.equal(broken.git.ok, false);
+    assert.ok(broken.git.error && broken.git.error.length > 0 && broken.git.error.length <= 300, 'galat akses git terbaca');
+    assert.doesNotMatch(JSON.stringify(a), /secret-token/);
+  } finally { if (keep !== undefined) process.env.HUB_GITLAB_TOKEN = keep; rig.cleanup(); bad.cleanup(); }
+});
+
 test('auth: kredensial git hanya dipakai bila berbentuk token GitLab (kata sandi akun diabaikan)', async () => {
   const { looksLikeToken, createAuth } = require('../main/auth');
   for (const yes of ['glpat-abcdefghijklmnopqrst', 'gloas-0123456789abcdef', 'abcdefghij0123456789']) assert.equal(looksLikeToken(yes), true, yes);

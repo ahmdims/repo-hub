@@ -39,9 +39,10 @@ The app uses your `gh` (GitHub CLI) login and never stores a GitHub token.
 
 ## 3. Connect GitLab
 
-> **A token is optional.** If you cannot create one (for example, your role does not allow it), skip this section. Push, fetch, and mirroring still work through git with your normal git login. Only GitLab merge requests (list, approve, merge, create) need a token; without one the app shows them as "off" instead of as an error.
+GitLab has two separate parts, shown as two rows on its card in **Settings**:
 
-> **Order matters.** The GitLab card in Settings has **no host field**. The list of hosts is built automatically from the repos you have already added. If no repo with a GitLab remote has been added yet, you will only see *"No repos with GitLab yet. Add a repo that has a GitLab remote on the Repositories page."* So add a repo first (step 3.1), then enter the token (step 3.3).
+- **Git access** is GitLab's equivalent of GitHub's login. Push, fetch, and mirroring use your normal git login (the one Git Credential Manager already remembers for the host), so there is nothing to set up here.
+- **Merge requests** (list, approve, merge, create) use GitLab's web API, which needs a personal access token. This part is **optional**. If you cannot create a token (for example, your role does not allow it), skip it: the app shows merge requests as **Off** instead of showing an error.
 
 ### 3.1 Add a repo
 
@@ -53,7 +54,24 @@ The app uses your `gh` (GitHub CLI) login and never stores a GitHub token.
 
 Once a repo with a GitLab remote is saved, its host (for example `gitlab.sevima.com`) appears under **Settings → GitLab**.
 
-### 3.2 Create a Personal Access Token in GitLab
+> The GitLab card has **no host field**: the list of hosts is built from the repos you have already added. If none has a GitLab remote yet, you will only see *"No repos with GitLab yet. Add a repo that has a GitLab remote on the Repositories page."*
+
+### 3.2 Check git access
+
+Open **Settings → GitLab** and look at the **Git access** row:
+
+| What you see | What it means |
+| --- | --- |
+| Green badge **Connected via git** | Git can read the remote with your normal login. Push, fetch, and sync will work. |
+| Red badge **Cannot reach**, with a message below it | That message is git's own error, for example a VPN that is off, a network problem, or a login that is no longer valid. Fix it, then click **Check again**. |
+
+The check runs `git ls-remote` against one of your repos on that host. It downloads nothing and does not use the GitLab API or a token.
+
+### 3.3 Optional: enable merge requests with a token
+
+Skip this if you cannot create a token.
+
+**Create the token in GitLab**
 
 1. Sign in to `https://gitlab.sevima.com`.
 2. Click your avatar → **Edit profile** → **Access tokens**, or go directly to `https://gitlab.sevima.com/-/user_settings/personal_access_tokens`.
@@ -63,25 +81,23 @@ Once a repo with a GitLab remote is saved, its host (for example `gitlab.sevima.
    - **Scopes:** tick **`api`**
 4. Click **Create personal access token**, then **copy the token** (it starts with `glpat-`). It is shown only once.
 
-### 3.3 Paste the token into Repo Hub
+**Paste it into Repo Hub**
 
 1. Open **Settings → GitLab**.
-2. On the card for `gitlab.sevima.com`, paste the token into the field **"Paste new token (glpat-…)"**.
+2. On the card for `gitlab.sevima.com`, expand **Add a token (optional)** and paste the token into the field **"Paste new token (glpat-…)"**.
 3. Click **Save**. You should see the notification *"Token saved (encrypted)."*
 
 The token is encrypted with Windows DPAPI and stored in the app's user data folder. It is never written to the **Activity** log.
 
-### 3.4 Confirm the connection
-
-The host card shows one of these states:
+### 3.4 What the Merge requests row shows
 
 | What you see | What it means |
 | --- | --- |
-| Green badge **Connected: `<username>`** and *"Token from: app"* | Success. |
-| Yellow badge **Needs token** | No token is saved yet. Repeat step 3.3. |
+| Green badge **Connected: `<username>`** and *"Token from: app"* | The token works; merge requests are on. |
+| Grey badge **Off** | No token (optional). Everything else keeps working. |
 | Yellow badge **Token not working** | The token was rejected (wrong, expired, or scope is not `api`). Create a new token and save it again. |
 
-To remove the token, click **Delete token** on the same card.
+To remove the token, expand **Replace token** and click **Delete token**.
 
 ## 4. Other ways to provide the GitLab token (optional)
 
@@ -99,10 +115,11 @@ The app looks for a token in this order and uses the first one it finds:
 | Symptom | Cause / fix |
 | --- | --- |
 | *"No repos with GitLab yet…"* in Settings | No repo with a GitLab remote has been added. Do step 3.1. |
-| *"GitLab rejected the token (401). Check the token in Settings > GitLab."* | The token is wrong or expired. Create a new one (3.2) and save it again (3.3). |
+| *"GitLab rejected the token (401). Check the token in Settings > GitLab."* | The token is wrong or expired. Create a new one and save it again (step 3.3). |
 | *"GitLab token for … is not set (Settings > GitLab)."* | No token exists for that host yet. Do step 3.3. |
 | The token field and **Save** button are disabled, with the warning *"Secure OS storage is not available; use the GITLAB_TOKEN environment variable."* | Use the `GITLAB_TOKEN` environment variable (section 4). |
 | GitHub is not connected | Run `gh auth login`, then click **Check again**. |
+| GitLab **Git access** says **Cannot reach** | Read the message under it. Typical causes: VPN or network is down, or the stored git login is no longer valid. Push once from a terminal to refresh the login, then click **Check again**. |
 | The app will not start from `dist/` | Make sure the whole `Repo Hub-win32-x64` folder is intact, or rebuild with `npm run package`. |
 
 ## 6. Where the app stores its data

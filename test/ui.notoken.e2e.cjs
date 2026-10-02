@@ -35,9 +35,12 @@ const ok = (name, cond, extra) => { if (!cond) fails++; console.log(`${cond ? 'P
     await shot('21-notoken-pr');
 
     await go('pengaturan', '[data-save-buffer]');
-    await page.waitForFunction(() => /Needs token/.test(document.getElementById('view').innerText), null, { timeout: 15000 });
-    const settings = await page.locator('#view').innerText();
-    ok('pengaturan: status "Needs token" dan keterangan bahwa token opsional', /Needs token/.test(settings) && /work without it/.test(settings));
+    await page.waitForFunction(() => /Connected via git/.test(document.getElementById('view').innerText), null, { timeout: 30000 });
+    const settings = (await page.locator('#view').innerText()).replace(/\s+/g, ' ');
+    ok('pengaturan: GitLab "Connected via git" (seperti GitHub), MR "Off" dan token opsional', /Git access/.test(settings) && /Connected via git/.test(settings) && /Merge requests/.test(settings) && /Optional\. Needs a personal access token/.test(settings) && !/Token not working|Needs token|fetch failed/.test(settings), settings.slice(settings.indexOf('Git access'), settings.indexOf('Git access') + 200));
+    ok('pengaturan: input token tersembunyi di balik "Add a token (optional)"', /Add a token \(optional\)/.test(settings) && (await page.locator('details[open] [data-token]').count()) === 0);
+    ok('header: chip akun menulis "GitLab: via git"', /GitLab: via git/.test(await page.locator('#accountSub').innerText()));
+    await shot('22-notoken-settings');
 
     await go('repositori', '[data-add="folder"]');
     await page.locator('#view tbody tr').first().locator('[data-act="test"]').click();

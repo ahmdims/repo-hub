@@ -23,7 +23,8 @@ function createGitlab(auth) {
       }
       return { ok: true, status: res.status, data, headers: res.headers };
     } catch (e) {
-      return { ok: false, error: e.name === 'AbortError' ? 'GitLab did not respond (timed out after 30 seconds).' : `Could not connect to GitLab: ${e.message}` };
+      const why = e.cause && (e.cause.code || e.cause.message);
+      return { ok: false, error: e.name === 'AbortError' ? 'GitLab did not respond (timed out after 30 seconds).' : `Could not connect to GitLab: ${e.message}${why ? ` (${why})` : ''}` };
     } finally { clearTimeout(timer); }
   }
 
