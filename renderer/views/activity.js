@@ -5,7 +5,7 @@ import { dialog, confirmDialog, notify, call } from '../lib/ui.js';
 export const title = 'Activity';
 let host = null, items = [];
 
-const LABEL = { 'git.push': 'Push', 'git.mirror': 'Mirror', 'git.fetch': 'Fetch', 'git.pull': 'Pull', 'pulls.merge': 'Merge', 'pulls.review': 'Review', 'pulls.comment': 'Comment', 'pulls.close': 'Close PR/MR', 'pulls.create': 'Create PR/MR', release: 'Release', 'repo.add': 'Add repo', 'repo.update': 'Edit repo', 'repo.remove': 'Remove repo' };
+const LABEL = { 'git.push': 'Push', 'git.mirror': 'Mirror', 'git.fetch': 'Fetch', 'git.pull': 'Pull', 'account.add': 'Add account', 'account.update': 'Edit account', 'account.remove': 'Remove account', 'ssh.key': 'SSH key', 'ssh.host': 'SSH config', 'ssh.trust': 'Trust host', 'repo.remote': 'Remote URL', 'pulls.merge': 'Merge', 'pulls.review': 'Review', 'pulls.comment': 'Comment', 'pulls.close': 'Close PR/MR', 'pulls.create': 'Create PR/MR', release: 'Release', 'repo.add': 'Add repo', 'repo.update': 'Edit repo', 'repo.remove': 'Remove repo' };
 
 function render() {
   setHtml(host, html`

@@ -9,6 +9,8 @@ const DEFAULT_FLOW = { steps: [{ from: '$BRANCH', to: 'master' }, { from: 'maste
 
 const str = (v, max = 300) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
 const refName = (v) => { const s = str(v, 200); return s && (s === '$BRANCH' || git.isSafeRef(s)) ? s : ''; };
+// kaitan ke akun dan URL sebelumnya (untuk kembali dari SSH ke HTTPS) ikut tersimpan di remote repo
+const carry = (dst, src) => { const a = str(src.account, 40); if (a) dst.account = a; const p = str(src.prevUrl, 400); if (p) dst.prevUrl = p; };
 
 function normalizeRepo(input, existing = {}) {
   const i = { ...existing, ...input };
@@ -30,6 +32,8 @@ function normalizeRepo(input, existing = {}) {
     if (!/^[\w.\-/]+$/.test(gl.path)) errors.push('Invalid GitLab project path (example: group/project).');
     if (!gl.url && gl.baseUrl && gl.path) gl.url = `${gl.baseUrl}/${gl.path}.git`;
   }
+  if (gh) carry(gh, i.github);
+  if (gl) carry(gl, i.gitlab);
   if (!gh && !gl) errors.push('Provide at least one: GitHub or GitLab.');
 
   const defaultBranch = refName(i.defaultBranch) || 'master';
@@ -48,6 +52,34 @@ function normalizeRepo(input, existing = {}) {
   return { repo, errors };
 }
 
+// Akun = penyedia + host + (pemilik/org opsional) + identitas SSH opsional. Dipakai untuk mengelompokkan remote repo.
+const ACCOUNT_PROVIDERS = ['github', 'gitlab', 'other'];
+const SSH_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
+function normalizeAccount(input, existing = {}) {
+  const i = { ...existing, ...input };
+  const errors = [];
+  const label = str(i.label, 60);
+  if (!label) errors.push('Account label is required.');
+  const provider = ACCOUNT_PROVIDERS.includes(i.provider) ? i.provider : 'other';
+  const host = str(i.host, 253).toLowerCase();
+  if (!/^[a-z0-9][a-z0-9.-]*$/.test(host)) errors.push('Host is not valid (example: github.com).');
+  const login = str(i.login, 100);
+  if (login && !/^[\w.@-]+$/.test(login)) errors.push('Login contains characters that are not allowed.');
+  const owners = [...new Set((Array.isArray(i.owners) ? i.owners : []).map((o) => str(o, 100).toLowerCase()).filter(Boolean))].slice(0, 20);
+  if (owners.some((o) => !/^[\w.-]+$/.test(o))) errors.push('Owners may only use letters, digits, dot, dash and underscore.');
+  let sshCfg = null;
+  if (i.ssh && (str(i.ssh.alias, 100) || str(i.ssh.identityFile, 64))) {
+    const alias = str(i.ssh.alias, 100), identityFile = str(i.ssh.identityFile, 64);
+    if (alias && !SSH_NAME.test(alias)) errors.push('SSH alias is not valid.');
+    if (identityFile && !SSH_NAME.test(identityFile)) errors.push('SSH key file name is not valid.');
+    const port = i.ssh.port == null || i.ssh.port === '' ? null : Number(i.ssh.port);
+    if (port != null && !(Number.isInteger(port) && port >= 1 && port <= 65535)) errors.push('SSH port is not valid.');
+    sshCfg = { alias, identityFile, ...(port ? { port } : {}) };
+  }
+  const account = { id: i.id || `a_${crypto.randomBytes(4).toString('hex')}`, label, provider, host, login, owners, ssh: sshCfg, addedAt: i.addedAt || new Date().toISOString() };
+  return { account, errors };
+}
+
 class Store {
   constructor(dir) {
     fs.mkdirSync(dir, { recursive: true });
@@ -55,7 +87,7 @@ class Store {
     this.file = path.join(dir, 'config.json');
     this.logFile = path.join(dir, 'activity.json');
     const cfg = this._read(this.file, {});
-    this.data = { version: 1, repos: Array.isArray(cfg.repos) ? cfg.repos : [], settings: cfg.settings || {}, secrets: cfg.secrets || {} };
+    this.data = { version: 1, repos: Array.isArray(cfg.repos) ? cfg.repos : [], accounts: Array.isArray(cfg.accounts) ? cfg.accounts : [], settings: cfg.settings || {}, secrets: cfg.secrets || {} };
     const log = this._read(this.logFile, []);
     this.log = Array.isArray(log) ? log : [];
   }
@@ -92,6 +124,35 @@ class Store {
     this.save(); return { ok: true };
   }
 
+  accounts() { return this.data.accounts; }
+  account(id) { return this.data.accounts.find((a) => a.id === id) || null; }
+  addAccount(input) {
+    const { account, errors } = normalizeAccount(input);
+    if (errors.length) return { ok: false, error: errors.join(' ') };
+    const sig = (a) => `${a.host}|${[...a.owners].sort().join(',')}`;
+    if (this.data.accounts.some((a) => a.label.toLowerCase() === account.label.toLowerCase())) return { ok: false, error: 'An account with this label already exists.' };
+    if (this.data.accounts.some((a) => sig(a) === sig(account))) return { ok: false, error: 'An account for this host and owner already exists.' };
+    this.data.accounts.push(account); this.save();
+    return { ok: true, account };
+  }
+  updateAccount(id, patch) {
+    const cur = this.account(id);
+    if (!cur) return { ok: false, error: 'Account not found.' };
+    const { account, errors } = normalizeAccount({ ...patch, id }, cur);
+    if (errors.length) return { ok: false, error: errors.join(' ') };
+    if (this.data.accounts.some((a) => a.id !== id && a.label.toLowerCase() === account.label.toLowerCase())) return { ok: false, error: 'An account with this label already exists.' };
+    Object.assign(cur, account); this.save();
+    return { ok: true, account: cur };
+  }
+  // menghapus akun hanya melepas kaitannya dari repo; repo dan folder tidak disentuh
+  removeAccount(id) {
+    const n = this.data.accounts.length;
+    this.data.accounts = this.data.accounts.filter((a) => a.id !== id);
+    if (this.data.accounts.length === n) return { ok: false, error: 'Account not found.' };
+    for (const r of this.data.repos) for (const k of ['github', 'gitlab']) if (r[k] && r[k].account === id) delete r[k].account;
+    this.save(); return { ok: true };
+  }
+
   settings() { return { postBuffer: 1048576, useGitCredential: true, ...this.data.settings }; }
   setSettings(patch) {
     const s = { ...this.data.settings };
@@ -111,4 +172,4 @@ class Store {
   clearActivity() { this.log = []; this._write(this.logFile, this.log); }
 }
 
-module.exports = { Store, normalizeRepo, DEFAULT_FLOW };
+module.exports = { Store, normalizeRepo, normalizeAccount, DEFAULT_FLOW };

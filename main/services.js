@@ -8,6 +8,7 @@ const github = require('./github');
 const { createAuth } = require('./auth');
 const { createProviders } = require('./providers');
 const { createRelease } = require('./release');
+const { createAccounts } = require('./accounts');
 
 const PLATFORMS = ['github', 'gitlab'];
 const mapLimit = async (items, n, fn) => {
@@ -20,6 +21,7 @@ function createServices({ store, emit = () => {} }) {
   const auth = createAuth(store);
   const providers = createProviders({ store, auth });
   const release = createRelease({ store, providers });
+  const accts = createAccounts({ store });
   git.setNetwork({ postBuffer: store.settings().postBuffer });
 
   const repoOf = (id) => { const r = store.repo(id); if (!r) throw new Error('Repo not found.'); return r; };
@@ -55,6 +57,53 @@ function createServices({ store, emit = () => {} }) {
     },
     async 'gitlab:clearToken'(p) { return auth.clearToken(String(p.host || '')); },
 
+    /* ------------------------------------------------------------ akun + ssh */
+    async 'acct:list'() { return { ok: true, accounts: accts.list() }; },
+    async 'acct:detect'() { return accts.detect(); },
+    async 'acct:save'(p) {
+      const a = (p && p.account) || {};
+      const res = a.id ? store.updateAccount(String(a.id), a) : store.addAccount(a);
+      if (!res.ok) return res;
+      const assigned = accts.autoAssign();
+      log(a.id ? 'account.update' : 'account.add', null, true, `${a.id ? 'Account updated' : 'Account added'}: ${res.account.label}${assigned ? ` (${assigned} ${assigned === 1 ? 'remote' : 'remotes'} assigned)` : ''}`);
+      return { ...res, assigned };
+    },
+    async 'acct:remove'(p) {
+      const a = store.account(String(p.id)); const res = store.removeAccount(String(p.id));
+      if (res.ok && a) log('account.remove', null, true, `Account removed from the list: ${a.label} (repos and folders untouched)`);
+      return res;
+    },
+    async 'acct:assign'() { return { ok: true, assigned: accts.autoAssign() }; },
+    async 'acct:setRepo'(p) { return accts.setRepoAccount({ repoId: String(p.repoId), platform: p.platform, accountId: p.accountId ? String(p.accountId) : null }); },
+    async 'acct:check'(p) { return accts.check(p || {}); },
+    async 'ssh:publicKey'(p) { return accts.publicKey({ file: String(p.file || '') }); },
+    async 'ssh:hostKey'(p) { return accts.hostKey({ host: String(p.host || ''), port: p.port }); },
+    async 'ssh:trustHost'(p) {
+      const c = confirmed(p); if (c) return c;
+      const res = await accts.trustHost({ host: String(p.host || ''), port: p.port, fingerprint: String(p.fingerprint || '') });
+      log('ssh.trust', null, !!res.ok, res.ok ? (res.alreadyTrusted ? `Host already trusted: ${p.host}` : `Host key trusted: ${p.host} (${res.fingerprint})`) : `Trusting ${p.host} failed: ${res.error}`);
+      return res;
+    },
+    async 'ssh:createKey'(p) {
+      const c = confirmed(p); if (c) return c;
+      const res = await accts.createKey({ name: p.name, comment: p.comment, provider: p.provider, host: p.host });
+      log('ssh.key', null, !!res.ok, res.ok ? `SSH key created: ${res.privateFile} (${res.fingerprint})` : `SSH key not created: ${res.error}`);
+      return res;
+    },
+    async 'ssh:addHost'(p) {
+      const c = confirmed(p); if (c) return c;
+      const res = accts.addHost({ alias: p.alias, hostName: p.hostName, user: p.user, port: p.port, identityFile: p.identityFile, label: p.label });
+      log('ssh.host', null, !!res.ok, res.ok ? `ssh config: added Host ${p.alias}${res.backup ? ` (backup: ${res.backup})` : ''}` : `ssh config not changed: ${res.error}`);
+      return res;
+    },
+    async 'repos:useSsh'(p) {
+      const c = confirmed(p); if (c) return c;
+      const repo = repoOf(p.repoId);
+      const res = await accts.useSsh({ repoId: repo.id, platform: p.platform, accountId: p.accountId ? String(p.accountId) : undefined, revert: !!p.revert });
+      log('repo.remote', repo, !!res.ok, res.ok ? (res.unchanged ? 'Remote already uses this URL' : `${p.revert ? 'Remote switched back to HTTPS' : 'Remote switched to SSH'} (${p.platform}): ${res.from} → ${res.to}`) : `Remote not changed: ${res.error}`);
+      return res;
+    },
+
     /* ------------------------------------------------------------ repo */
     async 'repos:list'() { return { ok: true, repos: store.repos() }; },
     async 'repos:detect'(p) {
@@ -78,6 +127,7 @@ function createServices({ store, emit = () => {} }) {
     },
     async 'repos:add'(p) {
       const res = store.addRepo(p.repo || {});
+      if (res.ok) accts.autoAssign();
       if (res.ok) log('repo.add', res.repo, true, `Repo "${res.repo.name}" added`);
       return res;
     },

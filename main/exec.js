@@ -10,10 +10,11 @@ const BASE_ENV = {
   NO_COLOR: '1',
 };
 
-// Untuk pengujian: HUB_GH_BIN=skrip.cjs memakai Node (bukan gh sungguhan).
+// Untuk pengujian: HUB_GH_BIN / HUB_SSH_BIN / HUB_SSH_KEYSCAN_BIN=skrip.cjs memakai Node (bukan program sungguhan).
+const TEST_BINS = { gh: 'HUB_GH_BIN', ssh: 'HUB_SSH_BIN', 'ssh-keyscan': 'HUB_SSH_KEYSCAN_BIN' };
 function resolveBin(cmd) {
-  if (cmd === 'gh' && process.env.HUB_GH_BIN) {
-    const bin = process.env.HUB_GH_BIN;
+  if (TEST_BINS[cmd] && process.env[TEST_BINS[cmd]]) {
+    const bin = process.env[TEST_BINS[cmd]];
     if (/\.(c|m)?js$/i.test(bin)) return { file: process.execPath, prefix: [bin], env: { ELECTRON_RUN_AS_NODE: '1' } };
     return { file: bin, prefix: [], env: {} };
   }
