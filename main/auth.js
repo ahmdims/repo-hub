@@ -35,7 +35,7 @@ function createAuth(store) {
     }
     if (!found && store.settings().useGitCredential !== false) {
       const t = await fromGitCredential(host);
-      if (t) found = { token: t, source: 'kredensial git' };
+      if (t) found = { token: t, source: 'git credentials' };
     }
     if (found) cache.set(host, { ...found, at: Date.now() });
     return found;
@@ -46,7 +46,7 @@ function createAuth(store) {
     async describe(host) { const f = await resolve(host); return f ? { has: true, source: f.source } : { has: false, source: null }; },
     canEncrypt,
     saveToken(host, token) {
-      if (!canEncrypt()) return { ok: false, error: 'Penyimpanan aman OS tidak tersedia. Gunakan variabel lingkungan GITLAB_TOKEN.' };
+      if (!canEncrypt()) return { ok: false, error: 'OS secure storage is not available. Use the GITLAB_TOKEN environment variable.' };
       store.setSecret(`gitlab:${host}`, encrypt(String(token).trim()));
       cache.delete(host);
       return { ok: true };

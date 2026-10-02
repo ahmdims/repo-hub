@@ -2,7 +2,7 @@
   "name": "repo-hub",
   "version": "0.1.0",
   "private": true,
-  "description": "GUI desktop untuk push, merge, review, dan rilis ke banyak repo (GitHub + GitLab) sekaligus, dibangun dengan design system KarirKit.",
+  "description": "Desktop GUI to push, merge, review, and release across many repos (GitHub + GitLab) at once, built with the KarirKit design system.",
   "author": "Ahmad Dimas <ahmad.dimas@sevima.id>",
   "license": "UNLICENSED",
   "main": "main/index.js",

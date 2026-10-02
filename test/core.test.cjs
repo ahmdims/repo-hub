@@ -130,7 +130,7 @@ test('store: normalisasi, validasi, duplikat, dan batas log', () => {
     const store = new Store(dir);
     assert.equal(store.addRepo({ name: '', path: 'relatif' }).ok, false);
     assert.match(store.addRepo({ name: 'x', path: rig.work, github: { repo: 'salah' } }).error, /owner\/repo/);
-    assert.match(store.addRepo({ name: 'x', path: rig.work }).error, /GitHub atau GitLab/);
+    assert.match(store.addRepo({ name: 'x', path: rig.work }).error, /GitHub or GitLab/);
     const ok = store.addRepo({ name: 'Demo', path: rig.work, github: { repo: 'org/demo' }, gitlab: { baseUrl: 'https://gitlab.x.com', path: 'g/demo' }, warnBranches: ['release', '../jahat'], ignoreRefs: ['refs/heads/main', 'bukan-ref'] });
     assert.equal(ok.ok, true);
     assert.equal(ok.repo.github.url, 'https://github.com/org/demo.git');
@@ -138,7 +138,7 @@ test('store: normalisasi, validasi, duplikat, dan batas log', () => {
     assert.deepEqual(ok.repo.warnBranches, ['release']);
     assert.deepEqual(ok.repo.ignoreRefs, ['refs/heads/main']);
     assert.equal(ok.repo.flow.steps[0].from, '$BRANCH');
-    assert.match(store.addRepo({ name: 'Lagi', path: rig.work, github: { repo: 'org/demo' } }).error, /sudah terdaftar/);
+    assert.match(store.addRepo({ name: 'Lagi', path: rig.work, github: { repo: 'org/demo' } }).error, /already registered/);
     assert.equal(store.updateRepo(ok.repo.id, { name: 'Ganti' }).repo.name, 'Ganti');
     for (let i = 0; i < 520; i++) store.addActivity({ action: 't', ok: true, summary: String(i) });
     assert.equal(store.log.length, 500);
@@ -154,9 +154,9 @@ test('services: aksi yang mengubah wajib confirmed, push ganda berjalan, aktivit
     const events = [];
     const { handlers, store } = createServices({ store: new Store(dir), emit: (c, d) => events.push([c, d]) });
     const repo = store.addRepo({ name: 'Demo', path: rig.work, github: { repo: 'org/demo', url: rig.gh }, gitlab: { baseUrl: 'https://gitlab.x.com', path: 'g/demo', url: rig.gl } }).repo;
-    assert.match((await handlers['git:push']({ repoId: repo.id, branch: 'master' })).error, /konfirmasi/);
-    assert.match((await handlers['pulls:merge']({ repoId: repo.id, platform: 'github', id: 1 })).error, /konfirmasi/);
-    assert.match((await handlers['git:mirror']({ repoId: repo.id })).error, /konfirmasi/);
+    assert.match((await handlers['git:push']({ repoId: repo.id, branch: 'master' })).error, /confirmation/);
+    assert.match((await handlers['pulls:merge']({ repoId: repo.id, platform: 'github', id: 1 })).error, /confirmation/);
+    assert.match((await handlers['git:mirror']({ repoId: repo.id })).error, /confirmation/);
     rig.commit('lokal baru', 'z.txt');
     const pushed = await handlers['git:push']({ repoId: repo.id, branch: 'master', confirmed: true });
     assert.equal(pushed.ok, true);

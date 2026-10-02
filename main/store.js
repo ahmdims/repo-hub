@@ -14,23 +14,23 @@ function normalizeRepo(input, existing = {}) {
   const i = { ...existing, ...input };
   const errors = [];
   const name = str(i.name, 80);
-  if (!name) errors.push('Nama repo wajib diisi.');
+  if (!name) errors.push('Repo name is required.');
   const p = str(i.path, 500);
-  if (!p || !path.isAbsolute(p)) errors.push('Lokasi folder harus berupa path absolut.');
+  if (!p || !path.isAbsolute(p)) errors.push('Folder location must be an absolute path.');
 
   const gh = i.github && (str(i.github.url, 400) || str(i.github.repo, 200)) ? { url: str(i.github.url, 400), repo: str(i.github.repo, 200).replace(/\.git$/, '') } : null;
-  if (gh && !/^[\w.-]+\/[\w.-]+$/.test(gh.repo)) errors.push('GitHub harus berformat owner/repo.');
+  if (gh && !/^[\w.-]+\/[\w.-]+$/.test(gh.repo)) errors.push('GitHub must be in owner/repo format.');
   if (gh && !gh.url) gh.url = `https://github.com/${gh.repo}.git`;
 
   let gl = null;
   if (i.gitlab && (str(i.gitlab.url, 400) || str(i.gitlab.path, 300))) {
     const g = i.gitlab; const base = str(g.baseUrl, 200).replace(/\/$/, '');
     gl = { url: str(g.url, 400), baseUrl: base, path: str(g.path, 300).replace(/\.git$/, '').replace(/^\//, '') };
-    if (!/^https?:\/\/[^\s/]+$/.test(gl.baseUrl)) errors.push('URL dasar GitLab tidak valid (contoh https://gitlab.perusahaan.com).');
-    if (!/^[\w.\-/]+$/.test(gl.path)) errors.push('Path project GitLab tidak valid (contoh grup/proyek).');
+    if (!/^https?:\/\/[^\s/]+$/.test(gl.baseUrl)) errors.push('Invalid GitLab base URL (example: https://gitlab.company.com).');
+    if (!/^[\w.\-/]+$/.test(gl.path)) errors.push('Invalid GitLab project path (example: group/project).');
     if (!gl.url && gl.baseUrl && gl.path) gl.url = `${gl.baseUrl}/${gl.path}.git`;
   }
-  if (!gh && !gl) errors.push('Isi minimal salah satu: GitHub atau GitLab.');
+  if (!gh && !gl) errors.push('Provide at least one: GitHub or GitLab.');
 
   const defaultBranch = refName(i.defaultBranch) || 'master';
   const flowIn = i.flow || {};
@@ -73,13 +73,13 @@ class Store {
     const { repo, errors } = normalizeRepo(input);
     if (errors.length) return { ok: false, error: errors.join(' ') };
     const key = (p) => p.toLowerCase();
-    if (this.data.repos.some((r) => key(r.path) === key(repo.path))) return { ok: false, error: 'Folder ini sudah terdaftar.' };
+    if (this.data.repos.some((r) => key(r.path) === key(repo.path))) return { ok: false, error: 'This folder is already registered.' };
     this.data.repos.push(repo); this.save();
     return { ok: true, repo };
   }
   updateRepo(id, patch) {
     const cur = this.repo(id);
-    if (!cur) return { ok: false, error: 'Repo tidak ditemukan.' };
+    if (!cur) return { ok: false, error: 'Repo not found.' };
     const { repo, errors } = normalizeRepo({ ...patch, id }, cur);
     if (errors.length) return { ok: false, error: errors.join(' ') };
     Object.assign(cur, repo); this.save();
@@ -88,7 +88,7 @@ class Store {
   removeRepo(id) {
     const n = this.data.repos.length;
     this.data.repos = this.data.repos.filter((r) => r.id !== id);
-    if (this.data.repos.length === n) return { ok: false, error: 'Repo tidak ditemukan.' };
+    if (this.data.repos.length === n) return { ok: false, error: 'Repo not found.' };
     this.save(); return { ok: true };
   }
 

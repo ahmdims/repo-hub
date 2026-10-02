@@ -19,7 +19,7 @@ export function dialog({ title, description, body, footer, size = 'modal-lg', cl
   mount(p, html`
     <div class="modal-header">
       <div class="min-w-0"><h3 class="modal-title" id="hubModalTitle">${title}</h3>${description ? html`<p class="modal-description">${description}</p>` : ''}</div>
-      <button type="button" class="modal-close" data-dialog-close aria-label="Tutup">${icon('x')}</button>
+      <button type="button" class="modal-close" data-dialog-close aria-label="Close">${icon('x')}</button>
     </div>
     <div class="modal-body" data-dialog-body>${body || ''}</div>
     <div class="modal-footer" data-dialog-footer ${footer ? '' : 'hidden'}>${footer || ''}</div>`);
@@ -50,10 +50,10 @@ export function dialog({ title, description, body, footer, size = 'modal-lg', cl
 export const closeDialog = () => { if (current) current.close(undefined); };
 
 // confirmDialog -> Promise<boolean>
-export function confirmDialog({ title, description, body, confirmLabel = 'Lanjutkan', cancelLabel = 'Batal', danger = false, iconName = 'warning-circle' }) {
+export function confirmDialog({ title, description, body, confirmLabel = 'Continue', cancelLabel = 'Cancel', danger = false, iconName = 'warning-circle' }) {
   const ctl = dialog({
     title, description, size: 'modal-md',
-    body: html`${danger ? html`<div class="callout-warning mb-4 flex items-start gap-3">${icon(iconName, 'h-4 w-4 shrink-0 text-warning-600')}<p class="text-sm">Aksi ini mengubah repo di luar komputer ini dan tidak bisa dibatalkan dari aplikasi.</p></div>` : ''}${body || ''}`,
+    body: html`${danger ? html`<div class="callout-warning mb-4 flex items-start gap-3">${icon(iconName, 'h-4 w-4 shrink-0 text-warning-600')}<p class="text-sm">This action changes repos outside this computer and can't be undone from the app.</p></div>` : ''}${body || ''}`,
     footer: html`<button type="button" class="btn-outline btn-md" data-dialog-close>${cancelLabel}</button><button type="button" class="${danger ? 'btn-danger' : 'btn-primary'} btn-md" data-confirm>${confirmLabel}</button>`,
   });
   return new Promise((resolve) => {
@@ -76,7 +76,7 @@ export async function busy(btn, fn) {
 export async function call(channel, payload, { silent = false } = {}) { // silent: jangan tampilkan toast galat
   let r;
   try { r = await window.hub.invoke(channel, payload); } catch (e) { r = { ok: false, error: e.message }; }
-  if (!r || r.ok === false) { if (!silent) notify('danger', (r && r.error) || 'Terjadi kesalahan.'); }
-  return r || { ok: false, error: 'Tidak ada respons.' };
+  if (!r || r.ok === false) { if (!silent) notify('danger', (r && r.error) || 'Something went wrong.'); }
+  return r || { ok: false, error: 'No response.' };
 }
 

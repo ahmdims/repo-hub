@@ -7,9 +7,9 @@ function createProviders({ store, auth }) {
   const gitlab = createGitlab(auth);
   let ghViewer = { at: 0, login: null };
 
-  const repoOf = (id) => { const r = store.repo(id); if (!r) throw new Error('Repo tidak ditemukan.'); return r; };
+  const repoOf = (id) => { const r = store.repo(id); if (!r) throw new Error('Repo not found.'); return r; };
   const hasPlatform = (repo, platform) => (platform === 'github' ? !!repo.github : !!repo.gitlab);
-  const need = (repo, platform) => { if (!hasPlatform(repo, platform)) throw new Error(`${repo.name} tidak punya ${platform === 'github' ? 'GitHub' : 'GitLab'}.`); };
+  const need = (repo, platform) => { if (!hasPlatform(repo, platform)) throw new Error(`${repo.name} has no ${platform === 'github' ? 'GitHub' : 'GitLab'} remote configured.`); };
 
   async function viewerLogin() {
     if (Date.now() - ghViewer.at < 10 * 60 * 1000) return ghViewer.login;
@@ -87,7 +87,7 @@ function createProviders({ store, auth }) {
       for (const r of store.repos()) if (r.gitlab) hosts.set(new URL(r.gitlab.baseUrl).host, r.gitlab.baseUrl);
       for (const [host, base] of hosts) {
         const token = await auth.describe(host);
-        const v = token.has ? await gitlab.viewer(base) : { ok: false, error: 'Token belum ada.' };
+        const v = token.has ? await gitlab.viewer(base) : { ok: false, error: 'No token set.' };
         out.gitlab[host] = { baseUrl: base, token, ...(v.ok ? { ok: true, login: v.login, name: v.name } : { ok: false, error: v.error }) };
       }
       return out;

@@ -36,7 +36,7 @@ async function topLevel(dir) {
 
 async function detect(dir) {
   const root = await topLevel(dir);
-  if (!root) return { ok: false, error: 'Bukan folder git.' };
+  if (!root) return { ok: false, error: 'Not a git folder.' };
   const remotesOut = await run('git', ['remote'], { cwd: root, timeout: 15000 });
   const names = remotesOut.stdout.split('\n').map((s) => s.trim()).filter(Boolean);
   const urls = [];
@@ -62,7 +62,7 @@ async function detect(dir) {
 /* ------------------------------------------------------------------ status */
 async function status(dir) {
   const r = await run('git', ['status', '--porcelain=v2', '--branch'], { cwd: dir, timeout: 30000 });
-  if (!r.ok) return { ok: false, error: r.stderr || 'git status gagal' };
+  if (!r.ok) return { ok: false, error: r.stderr || 'git status failed' };
   const s = { ok: true, branch: null, detached: false, upstream: null, ahead: null, behind: null, staged: 0, changed: 0, untracked: 0, conflicts: 0, oid: null };
   for (const line of r.stdout.split('\n')) {
     if (line.startsWith('# branch.head ')) { s.branch = line.slice(14).trim(); if (s.branch === '(detached)') { s.detached = true; s.branch = null; } }
@@ -106,7 +106,7 @@ async function fetchOrigin(dir) {
 
 /* ------------------------------------------------------------------ push */
 async function pushTo(dir, url, branch) {
-  if (!isSafeRef(branch)) return { ok: false, error: 'Nama branch tidak valid.' };
+  if (!isSafeRef(branch)) return { ok: false, error: 'Invalid branch name.' };
   // tanpa --force, tanpa --delete: hanya menambah commit / fast-forward
   const r = await run('git', [...netArgs(), 'push', '--porcelain', url, `refs/heads/${branch}:refs/heads/${branch}`], { cwd: dir, timeout: 180000 });
   const lines = r.stdout.split('\n').filter((l) => /^[ +\-*=!]\t/.test(l));
@@ -128,7 +128,7 @@ async function push(dir, { branch, targets }) {
 /* ------------------------------------------------------------------ parity + mirror */
 async function lsRemote(dir, url) {
   const r = await run('git', [...netArgs(), 'ls-remote', '--heads', '--tags', url], { cwd: dir, timeout: 90000 });
-  if (!r.ok) return { ok: false, error: r.stderr || 'ls-remote gagal' };
+  if (!r.ok) return { ok: false, error: r.stderr || 'ls-remote failed' };
   const refs = {};
   for (const line of r.stdout.split('\n').filter(Boolean)) { const [sha, ref] = line.split('\t'); if (ref) refs[ref] = sha; }
   return { ok: true, refs };
@@ -158,8 +158,8 @@ async function parity(dir, { githubUrl, gitlabUrl, ignoreRefs = [] }) {
 // tag yang sudah ada tidak pernah dipindah, dan tidak ada penghapusan.
 async function mirror(dir, { fromUrl, toUrl, ignoreRefs = [], dryRun = false }) {
   const [src, dst] = await Promise.all([lsRemote(dir, fromUrl), lsRemote(dir, toUrl)]);
-  if (!src.ok) return { ok: false, error: `Sumber: ${src.error}` };
-  if (!dst.ok) return { ok: false, error: `Tujuan: ${dst.error}` };
+  if (!src.ok) return { ok: false, error: `Source: ${src.error}` };
+  if (!dst.ok) return { ok: false, error: `Destination: ${dst.error}` };
   const skip = new Set(ignoreRefs);
   const wanted = Object.keys(src.refs).filter((r) => !r.endsWith('^{}') && !skip.has(r) && (r.startsWith('refs/heads/') || r.startsWith('refs/tags/')) && isSafeRef(r.replace(/^refs\/(heads|tags)\//, '')));
   const todo = wanted.filter((r) => src.refs[r] !== dst.refs[r]);
@@ -167,18 +167,18 @@ async function mirror(dir, { fromUrl, toUrl, ignoreRefs = [], dryRun = false }) 
 
   // objek sumber & tujuan dibawa ke namespace privat supaya tidak menyentuh refs/remotes milik pengguna
   const f1 = await run('git', [...netArgs(), 'fetch', '--no-tags', '--quiet', fromUrl, '+refs/heads/*:refs/hub/src/heads/*', '+refs/tags/*:refs/hub/src/tags/*'], { cwd: dir, timeout: 180000 });
-  if (!f1.ok) return { ok: false, error: `Fetch sumber gagal: ${f1.stderr}` };
+  if (!f1.ok) return { ok: false, error: `Fetching from source failed: ${f1.stderr}` };
   const f2 = await run('git', [...netArgs(), 'fetch', '--no-tags', '--quiet', toUrl, '+refs/heads/*:refs/hub/dst/heads/*'], { cwd: dir, timeout: 180000 });
-  if (!f2.ok && !/couldn't find remote ref/i.test(f2.stderr)) return { ok: false, error: `Fetch tujuan gagal: ${f2.stderr}` };
+  if (!f2.ok && !/couldn't find remote ref/i.test(f2.stderr)) return { ok: false, error: `Fetching from destination failed: ${f2.stderr}` };
 
   const plan = [], skipped = [];
   for (const ref of todo) {
     const isTag = ref.startsWith('refs/tags/');
     if (!(ref in dst.refs)) { plan.push({ ref, kind: isTag ? 'tag baru' : 'branch baru', sha: src.refs[ref] }); continue; }
-    if (isTag) { skipped.push({ ref, reason: 'Tag sudah ada di tujuan dengan commit berbeda; tidak dipindah.' }); continue; }
+    if (isTag) { skipped.push({ ref, reason: 'Tag already exists at the destination with a different commit; not moved.' }); continue; }
     const anc = await run('git', ['merge-base', '--is-ancestor', dst.refs[ref], src.refs[ref]], { cwd: dir, timeout: 30000 });
     if (anc.ok) plan.push({ ref, kind: 'fast-forward', sha: src.refs[ref], from: dst.refs[ref] });
-    else skipped.push({ ref, reason: 'Tujuan punya commit yang tidak ada di sumber (non-fast-forward); dilewati, tidak ada force.' });
+    else skipped.push({ ref, reason: 'Destination has commits that are not in the source (non-fast-forward); skipped, no force push.' });
   }
   if (dryRun || !plan.length) return { ok: true, dryRun, plan, pushed: [], skipped, failed: [], upToDate: !plan.length && !skipped.length };
 
@@ -190,7 +190,7 @@ async function mirror(dir, { fromUrl, toUrl, ignoreRefs = [], dryRun = false }) 
     const target = (refspec || '').split(':')[1] || refspec;
     (flag === '!' ? failed : pushed).push({ ref: target, note: rest.join(' ') });
   }
-  if (!pushed.length && !failed.length && !r.ok) failed.push({ ref: '(semua)', note: r.stderr });
+  if (!pushed.length && !failed.length && !r.ok) failed.push({ ref: '(all)', note: r.stderr });
   return { ok: !failed.length, plan, pushed, skipped, failed };
 }
 

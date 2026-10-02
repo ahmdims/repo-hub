@@ -21,18 +21,18 @@ function special() {
     },
     async 'dialog:pickFolder'() {
       if (process.env.HUB_PICK_FOLDER) return { ok: true, path: process.env.HUB_PICK_FOLDER }; // untuk tes otomatis
-      const r = await dialog.showOpenDialog(win, { title: 'Pilih folder', properties: ['openDirectory'] });
+      const r = await dialog.showOpenDialog(win, { title: 'Select folder', properties: ['openDirectory'] });
       return r.canceled || !r.filePaths[0] ? { ok: false, canceled: true } : { ok: true, path: r.filePaths[0] };
     },
     async 'shell:openFolder'(p) {
       const repo = services.store.repo(String(p.id));
-      if (!repo || !fs.existsSync(repo.path)) return { ok: false, error: 'Folder tidak ditemukan.' };
+      if (!repo || !fs.existsSync(repo.path)) return { ok: false, error: 'Folder not found.' };
       const err = await shell.openPath(repo.path);
       return err ? { ok: false, error: err } : { ok: true };
     },
     async 'shell:openExternal'(p) {
-      let u; try { u = new URL(String(p.url)); } catch { return { ok: false, error: 'URL tidak valid.' }; }
-      if (u.protocol !== 'https:') return { ok: false, error: 'Hanya tautan https yang boleh dibuka.' };
+      let u; try { u = new URL(String(p.url)); } catch { return { ok: false, error: 'Invalid URL.' }; }
+      if (u.protocol !== 'https:') return { ok: false, error: 'Only https links can be opened.' };
       await shell.openExternal(u.toString());
       return { ok: true };
     },
@@ -42,9 +42,9 @@ function special() {
 function registerIpc() {
   const sp = special();
   ipcMain.handle('hub:invoke', async (event, channel, payload) => {
-    if (!win || event.sender !== win.webContents) return { ok: false, error: 'Pengirim tidak dikenal.' };
+    if (!win || event.sender !== win.webContents) return { ok: false, error: 'Unknown sender.' };
     const fn = sp[channel] || services.handlers[channel];
-    if (!fn) return { ok: false, error: `Channel tidak dikenal: ${channel}` };
+    if (!fn) return { ok: false, error: `Unknown channel: ${channel}` };
     try { return await fn(payload || {}); } catch (e) { return { ok: false, error: e && e.message ? e.message : String(e) }; }
   });
 }
