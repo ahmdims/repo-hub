@@ -6,7 +6,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 const INVOKE = new Set([
   'app:info', 'accounts', 'settings:get', 'settings:set', 'gitlab:saveToken', 'gitlab:clearToken',
   'repos:list', 'repos:detect', 'repos:scan', 'repos:add', 'repos:update', 'repos:remove', 'repos:branches', 'repos:test',
-  'status:refresh', 'git:push', 'git:mirror', 'git:fetch',
+  'status:refresh', 'git:push', 'git:mirror', 'git:fetch', 'git:pull',
   'pulls:list', 'pulls:detail', 'pulls:diff', 'pulls:review', 'pulls:comment', 'pulls:merge', 'pulls:close', 'pulls:create',
   'release:plan', 'release:run', 'release:cancel',
   'activity:list', 'activity:clear',

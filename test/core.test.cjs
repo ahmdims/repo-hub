@@ -170,3 +170,100 @@ test('services: aksi yang mengubah wajib confirmed, push ganda berjalan, aktivit
     assert.equal(fs.existsSync(rig.work), true); // folder tidak pernah dihapus
   } finally { rig.cleanup(); }
 });
+
+/* ------------------------------------------------------------------ pull (fast-forward saja) */
+// salinan kerja kedua yang mendorong ke remote "GitHub" yang sama: mensimulasikan commit orang lain
+function otherClone(rig) {
+  const dir = path.join(rig.root, 'other');
+  sh(rig.root, 'clone', '-q', rig.gh, dir);
+  return {
+    dir,
+    commit(msg, file = 'other.txt') { fs.appendFileSync(path.join(dir, file), `${msg}\n`); sh(dir, 'add', '-A'); sh(dir, 'commit', '-q', '-m', msg); sh(dir, 'push', '-q', 'origin', 'master'); return sh(dir, 'rev-parse', 'HEAD'); },
+  };
+}
+
+test('pull: hanya fast-forward; menolak perubahan terlacak, history bercabang, dan HEAD lepas', async () => {
+  const rig = makeRig();
+  try {
+    rig.sh('branch', '--set-upstream-to=origin/master');
+    const other = otherClone(rig);
+
+    // sudah terbaru
+    let r = await git.pull(rig.work);
+    assert.equal(r.ok, true); assert.equal(r.upToDate, true);
+
+    // upstream maju 1 commit -> fast-forward
+    const remoteHead = other.commit('dari orang lain 1');
+    const before = rig.sh('rev-parse', 'HEAD');
+    r = await git.pull(rig.work);
+    assert.equal(r.ok, true); assert.equal(r.upToDate, false); assert.equal(r.updated, 1);
+    assert.equal(rig.sh('rev-parse', 'HEAD'), remoteHead);
+    assert.equal(rig.sh('rev-parse', '--short', 'HEAD'), r.to); assert.equal(rig.sh('rev-parse', '--short', before), r.from);
+    assert.equal(fs.existsSync(path.join(rig.work, 'other.txt')), true);
+
+    // perubahan pada file terlacak -> ditolak, tidak ada yang berubah
+    other.commit('dari orang lain 2');
+    const head2 = rig.sh('rev-parse', 'HEAD');
+    fs.appendFileSync(path.join(rig.work, 'README.md'), 'edit lokal\n');
+    r = await git.pull(rig.work);
+    assert.equal(r.ok, false); assert.match(r.error, /uncommitted/i);
+    assert.equal(rig.sh('rev-parse', 'HEAD'), head2);
+    assert.match(fs.readFileSync(path.join(rig.work, 'README.md'), 'utf8'), /edit lokal/);
+    rig.sh('checkout', '--', 'README.md');
+
+    // file untracked dibiarkan: tidak memblokir pull dan tidak disentuh
+    fs.writeFileSync(path.join(rig.work, 'scratch.txt'), 'x');
+    r = await git.pull(rig.work);
+    assert.equal(r.ok, true); assert.equal(r.updated, 1);
+    assert.equal(fs.readFileSync(path.join(rig.work, 'scratch.txt'), 'utf8'), 'x');
+    fs.rmSync(path.join(rig.work, 'scratch.txt'));
+
+    // history bercabang -> ditolak, tanpa merge commit
+    rig.commit('lokal saja', 'local.txt');
+    other.commit('dari orang lain 3');
+    const head3 = rig.sh('rev-parse', 'HEAD');
+    r = await git.pull(rig.work);
+    assert.equal(r.ok, false); assert.match(r.error, /diverged/i);
+    assert.equal(rig.sh('rev-parse', 'HEAD'), head3);
+    assert.equal(rig.sh('rev-list', '--merges', '--count', 'HEAD'), '0');
+
+    // HEAD lepas
+    rig.sh('checkout', '--detach');
+    r = await git.pull(rig.work);
+    assert.equal(r.ok, false); assert.match(r.error, /detached/i);
+  } finally { rig.cleanup(); }
+});
+
+test('pull: lokal lebih maju tidak menarik apa pun; cabang tanpa upstream ditolak', async () => {
+  const rig = makeRig();
+  try {
+    let r = await git.pull(rig.work); // upstream belum diatur
+    assert.equal(r.ok, false); assert.match(r.error, /no upstream/i);
+    rig.sh('branch', '--set-upstream-to=origin/master');
+    rig.commit('lokal lebih maju', 'a.txt');
+    const head = rig.sh('rev-parse', 'HEAD');
+    r = await git.pull(rig.work);
+    assert.equal(r.ok, true); assert.equal(r.upToDate, true); assert.equal(r.ahead, 1);
+    assert.equal(rig.sh('rev-parse', 'HEAD'), head);
+  } finally { rig.cleanup(); }
+});
+
+test('services: git:pull wajib confirmed, mencatat aktivitas, dan tidak menyentuh repo saat ditolak', async () => {
+  const rig = makeRig();
+  const dir = fs.mkdtempSync(path.join(rig.root, 'data-'));
+  try {
+    rig.sh('branch', '--set-upstream-to=origin/master');
+    const remoteHead = otherClone(rig).commit('dari orang lain');
+    const { handlers, store } = createServices({ store: new Store(dir), emit: () => {} });
+    const repo = store.addRepo({ name: 'Demo', path: rig.work, github: { repo: 'org/demo', url: rig.gh } }).repo;
+    const head = rig.sh('rev-parse', 'HEAD');
+    assert.match((await handlers['git:pull']({ repoId: repo.id })).error, /confirmation/);
+    assert.equal(rig.sh('rev-parse', 'HEAD'), head);
+    const res = await handlers['git:pull']({ repoId: repo.id, confirmed: true });
+    assert.equal(res.ok, true); assert.equal(res.updated, 1);
+    assert.equal(rig.sh('rev-parse', 'HEAD'), remoteHead);
+    const log = (await handlers['activity:list']()).items;
+    assert.equal(log[0].action, 'git.pull'); assert.equal(log[0].ok, true);
+    assert.match(log[0].summary, /fast-forwarded 1 commit from origin\/master/);
+  } finally { rig.cleanup(); }
+});

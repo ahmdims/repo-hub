@@ -104,6 +104,37 @@ async function fetchOrigin(dir) {
   return { ok: r.ok, error: r.ok ? null : r.stderr };
 }
 
+/* ------------------------------------------------------------------ pull (fast-forward saja) */
+// Menggerakkan cabang saat ini maju ke upstream-nya. Tidak pernah membuat merge commit, rebase, reset, atau
+// menimpa perubahan: menolak bila HEAD lepas, tanpa upstream, ada perubahan pada file terlacak, atau history bercabang.
+// File untracked dibiarkan; git sendiri membatalkan bila ada yang akan tertimpa.
+async function pull(dir) {
+  const s0 = await status(dir);
+  if (!s0.ok) return { ok: false, error: s0.error };
+  if (!s0.branch || !isSafeRef(s0.branch)) return { ok: false, error: 'HEAD is detached; switch to a branch first.' };
+  if (!s0.upstream) return { ok: false, error: `Branch "${s0.branch}" has no upstream to pull from.` };
+  if (s0.staged + s0.changed + s0.conflicts > 0) return { ok: false, error: 'There are uncommitted changes to tracked files. Commit or stash them first.' };
+
+  const remote = (await run('git', ['config', '--get', `branch.${s0.branch}.remote`], { cwd: dir, timeout: 15000 })).stdout.trim();
+  if (remote && remote !== '.') {
+    if (!/^[\w.-]+$/.test(remote)) return { ok: false, error: 'Unsupported remote name for this branch.' };
+    const f = await run('git', [...netArgs(), 'fetch', '--prune', '--quiet', remote], { cwd: dir, timeout: 120000 });
+    if (!f.ok) return { ok: false, error: f.stderr || 'git fetch failed' };
+  }
+
+  const s1 = await status(dir); // ahead/behind terbaru setelah fetch
+  if (!s1.ok) return { ok: false, error: s1.error };
+  if (s1.ahead == null) return { ok: false, error: 'The upstream branch no longer exists on the remote.' };
+  if (!s1.behind) return { ok: true, upToDate: true, branch: s1.branch, upstream: s1.upstream, ahead: s1.ahead };
+  if (s1.ahead > 0) return { ok: false, error: `History has diverged (${s1.ahead} ${s1.ahead === 1 ? 'commit' : 'commits'} ahead, ${s1.behind} behind), so a fast-forward is not possible. Merge or rebase manually.` };
+
+  const short = async () => (await run('git', ['rev-parse', '--short', 'HEAD'], { cwd: dir, timeout: 15000 })).stdout.trim();
+  const from = await short();
+  const m = await run('git', ['merge', '--ff-only', '@{u}'], { cwd: dir, timeout: 120000 });
+  if (!m.ok) return { ok: false, error: m.stderr || m.stdout || 'git merge --ff-only failed' };
+  return { ok: true, upToDate: false, branch: s1.branch, upstream: s1.upstream, updated: s1.behind, from, to: await short() };
+}
+
 /* ------------------------------------------------------------------ push */
 async function pushTo(dir, url, branch) {
   if (!isSafeRef(branch)) return { ok: false, error: 'Invalid branch name.' };
@@ -199,4 +230,4 @@ async function cleanupHubRefs(dir) {
   for (const ref of r.stdout.split('\n').filter(Boolean)) await run('git', ['update-ref', '-d', ref], { cwd: dir, timeout: 15000 });
 }
 
-module.exports = { setNetwork, isSafeRef, parseRemoteUrl, kindOfUrl, redactUrl, detect, status, branches, lastSubject, fetchOrigin, push, pushTo, lsRemote, diffRefs, parity, mirror, cleanupHubRefs };
+module.exports = { setNetwork, isSafeRef, parseRemoteUrl, kindOfUrl, redactUrl, detect, status, branches, lastSubject, fetchOrigin, pull, push, pushTo, lsRemote, diffRefs, parity, mirror, cleanupHubRefs };
