@@ -77,7 +77,7 @@ test('ssh: appendHostBlock backup dulu, hanya menambah di akhir, menjaga EOL, da
   const cfg = path.join(dir, 'config');
   const old = 'Host github.com\r\n    HostName github.com\r\n';
   fs.writeFileSync(cfg, old);
-  const r = sshc.appendHostBlock({ alias: 'github-work', hostName: 'github.com', identityFile: 'id_ed25519_a', label: 'Work <b>' }, dir);
+  const r = sshc.appendHostBlock({ alias: 'github-work', hostName: 'github.com', identityFile: 'id_ed25519_a', label: 'Work <b> · side  org' }, dir);
   assert.equal(r.ok, true, r.error);
   const after = fs.readFileSync(cfg, 'utf8');
   assert.ok(after.startsWith(old), 'isi lama tidak berubah satu byte pun');
@@ -86,6 +86,7 @@ test('ssh: appendHostBlock backup dulu, hanya menambah di akhir, menjaga EOL, da
   assert.match(added, /Host github-work/); assert.match(added, /IdentityFile ~\/\.ssh\/id_ed25519_a/); assert.match(added, /IdentitiesOnly yes/);
   assert.doesNotMatch(added, /(^|[^\r])\n/, 'EOL CRLF dipertahankan');
   assert.doesNotMatch(added, /<b>/); // label dibersihkan
+  assert.match(added, /# Added by Repo Hub: Work b side org\r\n/); // tanpa spasi ganda
   assert.deepEqual(sshc.hostAliases(dir).aliases.map((a) => a.alias), ['github.com', 'github-work']);
 
   const snapshot = fs.readFileSync(cfg, 'utf8');
@@ -319,6 +320,7 @@ test('repos:useSsh: membuktikan baca lewat SSH lebih dulu, hanya menulis ulang e
     process.env.FAKE_GIT_SSH_MAP = '{}';
     const fail = await handlers['repos:useSsh']({ ...base, confirmed: true });
     assert.equal(fail.ok, false); assert.match(fail.error, /nothing was changed/);
+    assert.match(fail.error, /Permission denied|no repo/i); assert.doesNotMatch(fail.error, /and the repository exists/); // mengutip penyebab, bukan penutup baku git
     assert.equal(rig.sh('config', '--get', 'remote.origin.url'), httpsGh);
     assert.equal(store.repo(repo.id).github.url, httpsGh);
 

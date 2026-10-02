@@ -159,7 +159,7 @@ function appendHostBlock({ alias, hostName, user = 'git', port, identityFile, la
   } else fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
 
   const eol = text.includes('\r\n') ? '\r\n' : '\n';
-  const tag = String(label || '').replace(/[^\w .@+-]/g, '').trim().slice(0, 60);
+  const tag = String(label || '').replace(/[^\w .@+-]/g, '').replace(/\s+/g, ' ').trim().slice(0, 60);
   const lines = [`# Added by Repo Hub${tag ? `: ${tag}` : ''}`, `Host ${alias}`, `    HostName ${hostName}`, `    User ${user}`];
   if (p) lines.push(`    Port ${p}`);
   lines.push(`    IdentityFile ~/.ssh/${identityFile}`, '    IdentitiesOnly yes');

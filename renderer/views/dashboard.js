@@ -2,7 +2,8 @@
 // + push dan sinkron mirror ke banyak repo sekaligus.
 import { html, esc, icon, badge, mount as setHtml } from '../lib/h.js';
 import { dialog, notify, call, busy } from '../lib/ui.js';
-import { state, bus, summary, refreshAll, repoById } from '../state.js';
+import { state, bus, summary, refreshAll, repoById, acctById } from '../state.js';
+import { providerIcon } from '../lib/ssh.js';
 import { openAddMenu } from './repos.js';
 
 // Plural helper (local): plural(2, 'repo') -> "2 repos"; plural(1, 'repo') -> "1 repo"
@@ -12,6 +13,7 @@ export const title = 'Dashboard';
 let offs = [];
 let selected = new Set();
 let root = null, host = null;
+let acctFilter = ''; // '' = semua akun, '__none' = ada remote tanpa akun, selain itu id akun
 
 /* ------------------------------------------------------------------ sel-sel tabel */
 function branchCell(r, s) {
@@ -49,21 +51,45 @@ function prCell(r) {
   return html`<a href="#/pull-request" class="whitespace-nowrap text-sm font-medium ${c.github + c.gitlab ? 'text-primary-600' : 'text-slate-500'} hover:underline" title="${title}">${parts.join(' · ')}${warn ? ' ⚠' : ''}</a>`;
 }
 
+// Satu chip per remote (GitHub dulu, lalu GitLab): label akun, atau "—" bila belum ditetapkan. Judul chip = host.
+function accountOf(r, p) { const a = r[p] && r[p].account ? acctById(r[p].account) : null; return a || null; }
+function accountCell(r) {
+  const chips = ['github', 'gitlab'].filter((p) => r[p]).map((p) => {
+    const a = accountOf(r, p);
+    return a
+      ? html`<span class="inline-flex max-w-[8.5rem] items-start gap-1 rounded-2xl bg-primary-50 px-2 py-0.5 text-xs font-medium leading-4 text-primary-700" title="${a.host}" data-chip="${p}">${icon(providerIcon(p), 'mt-0.5 h-3 w-3 shrink-0')}<span class="min-w-0 break-words">${a.label}</span></span>`
+      : html`<span class="inline-flex items-center gap-1 rounded-full bg-neutral-100 px-2 py-0.5 text-xs text-slate-400" title="No account assigned" data-chip="${p}">${icon(providerIcon(p), 'h-3 w-3 shrink-0')}—</span>`;
+  });
+  return html`<div class="flex flex-wrap gap-1.5">${chips}</div>`;
+}
+
+// baris cocok bila SALAH SATU remote-nya ada di akun terpilih (atau, untuk "Unassigned", ada remote tanpa akun)
+function matchesAccount(r) {
+  if (!acctFilter) return true;
+  const ids = ['github', 'gitlab'].filter((p) => r[p]).map((p) => (accountOf(r, p) || {}).id || null);
+  return acctFilter === '__none' ? ids.some((x) => !x) : ids.includes(acctFilter);
+}
+
+function acctOptions() {
+  return html`<option value="">All accounts</option>${state.acct.list.map((a) => html`<option value="${a.id}" ${acctFilter === a.id ? 'selected' : ''}>${a.label}</option>`)}<option value="__none" ${acctFilter === '__none' ? 'selected' : ''}>Unassigned</option>`;
+}
+
 function rowHtml(r, i) {
   const s = state.status[r.id];
   const loading = state.loading.has(r.id);
   return html`<tr data-id="${r.id}" class="${loading ? 'repo-row-loading' : ''}">
     <td class="table-col-check"><input type="checkbox" class="form-check form-check-sm" data-table-select aria-label="Select ${r.name}" ${selected.has(r.id) ? 'checked' : ''} /></td>
     <td class="table-col-num" data-num>${i + 1}</td>
-    <td><span class="block font-medium text-slate-800">${r.name}</span><p class="mt-0.5 max-w-[14rem] truncate text-xs text-slate-400" title="${r.path}">${r.path}</p>
+    <td><span class="block font-medium text-slate-800">${r.name}</span><p class="mt-0.5 max-w-[10rem] truncate text-xs text-slate-400" title="${r.path}">${r.path}</p>
       <div class="mt-1 flex gap-1.5 text-slate-400">${r.github ? html`<span title="GitHub: ${r.github.repo}">${icon('github-logo', 'h-3.5 w-3.5')}</span>` : ''}${r.gitlab ? html`<span title="GitLab: ${r.gitlab.path}">${icon('gitlab-logo', 'h-3.5 w-3.5')}</span>` : ''}</div></td>
+    <td>${accountCell(r)}</td>
     <td>${branchCell(r, s)}</td>
     <td>${posCell(s)}</td>
     <td>${mirrorCell(r)}</td>
     <td>${prCell(r)}</td>
     <td class="table-col-actions"><div class="flex items-center justify-end gap-1.5">
       <button type="button" class="btn-outline btn-sm whitespace-nowrap max-2xl:w-8 max-2xl:px-0" data-act="pull" title="Pull (fast-forward only)" aria-label="Pull ${r.name}">${icon('download-simple')}<span class="hidden 2xl:inline">Pull</span></button>
-      <button type="button" class="btn-outline btn-sm whitespace-nowrap" data-act="push" title="Push to GitHub + GitLab">${icon('upload-simple')}<span class="hidden xl:inline">Push</span></button>
+      <button type="button" class="btn-outline btn-sm whitespace-nowrap max-2xl:w-8 max-2xl:px-0" data-act="push" title="Push to GitHub + GitLab" aria-label="Push ${r.name}">${icon('upload-simple')}<span class="hidden 2xl:inline">Push</span></button>
       <button type="button" class="btn-outline btn-sm whitespace-nowrap max-2xl:w-8 max-2xl:px-0" data-act="mirror" title="Mirror GitHub to GitLab" aria-label="Sync ${r.name}" ${r.github && r.gitlab ? '' : 'disabled'}>${icon('arrows-clockwise')}<span class="hidden 2xl:inline">Sync</span></button>
       <button type="button" class="btn-outline btn-sm w-8 px-0" data-act="folder" title="Open folder" aria-label="Open folder ${r.name}">${icon('folder-open')}</button>
     </div></td>
@@ -104,6 +130,7 @@ function shell() {
     <div class="table-wrap overflow-visible" id="repoTable" data-table data-item-label="repos">
       <div class="table-toolbar">
         <div class="relative w-full sm:w-72">${icon('magnifying-glass', 'pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400')}<input type="search" class="input h-9 pl-9" placeholder="Search by repo or folder name..." data-table-search /></div>
+        <div class="flex items-center gap-2">${icon('identification-card', 'h-4 w-4 text-slate-400')}<select class="input h-9 w-auto min-w-[11rem]" id="acctFilter" data-acct-filter aria-label="Filter by account">${acctOptions()}</select></div>
         <div class="ml-auto flex items-center gap-2 text-xs text-slate-400" id="dashLast"></div>
       </div>
       <div class="table-bulk" data-table-bulk hidden>
@@ -121,6 +148,7 @@ function shell() {
             <th scope="col" class="table-col-check"><input type="checkbox" class="form-check form-check-sm" data-table-select-all aria-label="Select all repos" /></th>
             <th scope="col" class="table-col-num">#</th>
             <th scope="col" data-sort="text">Repository</th>
+            <th scope="col" data-sort="text">Account</th>
             <th scope="col">Branch</th>
             <th scope="col">Upstream</th>
             <th scope="col">GitHub ↔ GitLab</th>
@@ -148,16 +176,32 @@ function paintRows() {
 
 export function mount(el) {
   host = el; selected = new Set([...selected].filter((id) => repoById(id)));
+  if (acctFilter && acctFilter !== '__none' && !acctById(acctFilter)) acctFilter = ''; // akun yang dipilih sudah dihapus
   host.innerHTML = shell().s;
   root = host.querySelector('#repoTable');
   if (root) {
     window.KKTable.init(root);
-    root.addEventListener('change', (e) => { if (e.target.matches('[data-table-select], [data-table-select-all]')) syncSelection(); });
+    window.KKTable.get(root).addFilter((row) => { const r = repoById(row.dataset.id); return !r || matchesAccount(r); });
+    root.addEventListener('change', (e) => {
+      if (e.target.matches('[data-table-select], [data-table-select-all]')) syncSelection();
+      if (e.target.matches('[data-acct-filter]')) { acctFilter = e.target.value; window.KKTable.get(root).refresh(); }
+    });
+    // baris yang tersaring tidak boleh tetap terpilih: aksi massal hanya berlaku untuk baris yang terlihat
+    root.addEventListener('table:render', (e) => {
+      const shown = new Set(e.detail.visible);
+      let last = null;
+      root.querySelectorAll('#repoBody tr[data-id]').forEach((tr) => { const cb = tr.querySelector('[data-table-select]'); if (cb && cb.checked && !shown.has(tr)) { cb.checked = false; last = cb; } });
+      if (last) last.dispatchEvent(new Event('change', { bubbles: true }));
+    });
     root.addEventListener('click', onClick);
     paintRows();
   }
   host.addEventListener('click', onAdd);
-  offs = [bus.on('status', () => { if (host && root) paintRows(); })];
+  offs = [bus.on('status', () => { if (host && root) paintRows(); }), bus.on('acct', () => {
+    if (!host || !root) return;
+    const sel = host.querySelector('#acctFilter'); if (sel) { if (acctFilter && acctFilter !== '__none' && !acctById(acctFilter)) acctFilter = ''; setHtml(sel, acctOptions()); }
+    paintRows();
+  })];
 }
 
 export function unmount() { offs.forEach((f) => f()); offs = []; host = null; root = null; }

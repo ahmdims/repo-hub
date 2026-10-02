@@ -17,6 +17,8 @@ const keysPage = (provider, host) => (provider === 'github' ? 'https://github.co
 
 /* ------------------------------------------------------------------ cek akun lewat ssh -T */
 const lastLine = (t) => String(t || '').split(/\r?\n/).map((l) => l.trim()).filter(Boolean).pop() || '';
+const GIT_BOILERPLATE = /^(fatal: Could not read from remote repository\.?|Please make sure you have the correct access rights|and the repository exists\.?)$/i;
+const causeLine = (t) => { const ls = String(t || '').split(/\r?\n/).map((l) => l.trim()).filter(Boolean); return ls.find((l) => !GIT_BOILERPLATE.test(l)) || ls[0] || ''; };
 
 function parseWhoami(text, exit) {
   const t = String(text || '');
@@ -218,7 +220,7 @@ function createAccounts({ store }) {
     const r = await run('git', ['ls-remote', '--heads', url, 'HEAD'], { cwd: dir, timeout: 45000, env });
     if (r.ok) return { ok: true };
     const text = r.stderr || '';
-    return { ok: false, hostKey: /Host key verification failed/i.test(text), error: git.redactUrl(lastLine(text)).slice(0, 300) || 'git ls-remote failed.' };
+    return { ok: false, hostKey: /Host key verification failed/i.test(text), error: git.redactUrl(causeLine(text)).slice(0, 300) || 'git ls-remote failed.' };
   }
 
   // ganti tiap entri remote.*.url / remote.*.pushurl yang sama dengan oldUrl; entri lain tidak disentuh
