@@ -22,7 +22,7 @@ Prerequisites: Node.js 20+, Git, and the [GitHub CLI](https://cli.github.com/) (
 ```bash
 npm install
 npm start          # builds assets, then opens the app
-npm test           # backend tests (15)
+npm test           # backend tests
 npm run test:ui    # Electron UI tests (Playwright)
 npm run package    # standalone app at dist/Repo Hub-win32-x64/repo-hub.exe
 ```
