@@ -1,75 +1,79 @@
 # Repo Hub
 
-Aplikasi desktop (Electron) untuk **push, sinkronisasi, review, merge, dan rilis ke banyak repo sekaligus** — GitHub dan GitLab — dengan tampilan yang sama seperti KarirKit (dibangun langsung di atas design system KarirKit).
+A desktop app (Electron) to **push, sync, review, merge, and release across many repos at once**, on both GitHub and GitLab. It looks and feels like KarirKit because it is built directly on the KarirKit design system.
 
-Pikirkan seperti halaman GitHub/GitLab, tetapi satu layar untuk semua repo kamu.
+Think of the GitHub/GitLab pages you already know, but one screen for all of your repos.
 
-## Fitur
+## Features
 
-| Halaman | Fungsinya |
+| Page | What it does |
 | --- | --- |
-| **Dasbor** | Status semua repo (branch, perubahan lokal, ahead/behind, kesamaan GitHub ↔ GitLab). Pilih beberapa repo lalu **Push** atau **Sinkronkan GitLab** sekaligus. |
-| **Pull Request** | PR GitHub + MR GitLab dari semua repo dalam satu tabel. Filter, cari, lihat detail (check, commit, diff, diskusi), **Approve**, **Request changes**, komentar, **Merge**, tutup, dan **Buat PR/MR**. Approve/merge massal. |
-| **Rilis** | Alur sekali klik, mis. `karirkit/<versi>` → `master` → `karirkit/vercel`: buat/pakai PR, tunggu check hijau, merge, sinkron GitLab, pantau deployment. Berhenti di kegagalan pertama. Bisa dibatalkan. |
-| **Repositori** | Daftar repo yang kamu kelola — **bisa diubah sendiri**: tambah dari folder, pindai folder induk, ubah, hapus dari daftar. Tiap repo punya alur rilisnya sendiri. |
-| **Aktivitas** | Catatan semua aksi (push, merge, review, rilis…). Token tidak pernah dicatat. |
-| **Pengaturan** | Koneksi GitHub (lewat `gh`), token GitLab per host, ukuran buffer git. |
+| **Dashboard** | Status of every repo (branch, local changes, ahead/behind, GitHub ↔ GitLab parity). Select several repos, then **Push** or **Sync GitLab** in one go. |
+| **Pull Requests** | GitHub PRs and GitLab MRs from all repos in one table. Filter, search, open details (checks, commits, diff, discussion), **Approve**, **Request changes**, comment, **Merge**, close, and **Create PR/MR**. Bulk approve and merge. |
+| **Release** | A one-click flow, for example `karirkit/<version>` → `master` → `karirkit/vercel`: create or reuse the PR, wait for green checks, merge, mirror to GitLab, and watch the deployment. Stops at the first failure and can be cancelled. |
+| **Repositories** | The repos you manage, **fully editable by you**: add from a folder, scan a parent folder, edit, or remove from the list. Each repo has its own release flow. |
+| **Activity** | A log of every action (push, merge, review, release…). Tokens are never logged. |
+| **Settings** | GitHub connection (through `gh`), GitLab token per host, and the git buffer size. |
 
-## Menjalankan
+## Running
 
-Prasyarat: Node.js 20+, Git, dan [GitHub CLI](https://cli.github.com/) (`gh`).
+Prerequisites: Node.js 20+, Git, and the [GitHub CLI](https://cli.github.com/) (`gh`).
 
 ```bash
 npm install
-npm start          # build aset lalu buka aplikasi
-npm test           # tes backend (13) — tes UI: node test/ui.e2e.cjs
-npm run package    # aplikasi mandiri di dist/Repo Hub-win32-x64/repo-hub.exe
+npm start          # builds assets, then opens the app
+npm test           # backend tests (13); UI tests: node test/ui.e2e.cjs
+npm run package    # standalone app at dist/Repo Hub-win32-x64/repo-hub.exe
 ```
 
-### Login
+For a step-by-step walkthrough (running the app and connecting GitHub and GitLab), see [TUTORIAL.md](TUTORIAL.md).
 
-- **GitHub**: jalankan `gh auth login` sekali. Aplikasi memakai login `gh` itu, tidak menyimpan token GitHub.
-- **GitLab**: buat *personal access token* (scope `api`), lalu tempel di **Pengaturan → GitLab**. Token disimpan terenkripsi oleh sistem operasi (Electron `safeStorage`). Alternatif: variabel lingkungan `GITLAB_TOKEN` / `HUB_GITLAB_TOKEN`, atau (opsional) kata sandi yang sudah tersimpan di git credential manager bila isinya memang token.
+### Signing in
 
-### Menambah repo
+- **GitHub**: run `gh auth login` once. The app uses that `gh` login and does not store a GitHub token.
+- **GitLab**: create a *personal access token* (scope `api`) and paste it under **Settings → GitLab**. The token is stored encrypted by the operating system (Electron `safeStorage`). Alternatives: the `GITLAB_TOKEN` / `HUB_GITLAB_TOKEN` environment variable, or (optionally) a password already saved in the git credential manager, if it is actually a token.
 
-**Repositori → Tambah dari folder** (atau **Pindai folder induk** untuk menemukan banyak repo sekaligus). Remote GitHub/GitLab, branch default, dan branch deploy dideteksi otomatis dari `git remote` (termasuk `pushurl` ganda) lalu bisa kamu koreksi di form.
+### Adding repos
 
-### Alur rilis per repo
+**Repositories → Add from folder** (or **Scan parent folder** to find many repos at once). The GitHub/GitLab remotes, default branch, and deploy branch are detected automatically from `git remote` (including multiple `pushurl`s) and can be corrected in the form.
 
-Di form repo, bagian **Alur rilis** berisi langkah `dari → ke`. `$BRANCH` diganti branch rilis yang dipilih di halaman Rilis. Bawaan:
+### Release flow per repo
+
+In the repo form, the **Release flow** section lists `from → to` steps. `$BRANCH` is replaced by the release branch you pick on the Release page. The default is:
 
 1. `$BRANCH` → `master`
 2. `master` → `karirkit/vercel`
 
-Opsi: metode merge (`merge`/`squash`/`rebase`), tunggu check hijau, sinkron GitLab setelah rilis, pantau deployment.
+Options: merge method (`merge`/`squash`/`rebase`), wait for green checks, mirror to GitLab after the release, and monitor the deployment.
 
-## Jaminan keamanan
+## Safety guarantees
 
-- **Tidak ada force-push**, **tidak ada penghapusan branch/tag**, **tidak ada penghapusan folder**. Menghapus repo dari daftar hanya menghapus entri di aplikasi.
-- Setiap aksi yang mengubah sesuatu butuh konfirmasi di UI **dan** ditolak oleh proses utama bila datang tanpa `confirmed: true`.
-- Mirror GitLab hanya membuat ref baru atau fast-forward; tag yang sudah ada tidak pernah dipindah.
-- Perintah `git`/`gh` dijalankan tanpa shell (`execFile`); semua nama ref divalidasi.
-- Renderer terisolasi: `contextIsolation`, `sandbox`, tanpa `nodeIntegration`, CSP tanpa skrip inline. Satu channel IPC dengan daftar putih; semua teks dari luar (judul PR, nama branch, pesan commit) di-escape.
-- Aturan GitHub tetap berlaku: kamu tidak bisa meng-approve PR milikmu sendiri (tombol dinonaktifkan).
+- **No force-push**, **no branch or tag deletion**, **no folder deletion**. Removing a repo from the list only removes the entry in the app.
+- Every action that changes something needs confirmation in the UI **and** is rejected by the main process if it arrives without `confirmed: true`.
+- GitLab mirroring only creates new refs or fast-forwards; an existing tag is never moved.
+- `git`/`gh` commands run without a shell (`execFile`); all ref names are validated.
+- The renderer is isolated: `contextIsolation`, `sandbox`, no `nodeIntegration`, and a CSP with no inline scripts. There is a single IPC channel with an allowlist, and all external text (PR titles, branch names, commit messages) is escaped.
+- GitHub's rules still apply: you cannot approve your own PR (the button is disabled).
 
-## Struktur
+## Structure
 
 ```
-main/       proses utama: git, GitHub (gh), GitLab (REST), alur rilis, penyimpanan, IPC
-preload/    jembatan sempit ke renderer
-renderer/   UI (HTML + JS modul) — gaya dari design system KarirKit
-src/        app.css → dibangun Tailwind ke renderer/vendor/
-scripts/    build-assets.mjs (CSS + aset), package.mjs (aplikasi mandiri)
-test/       tes backend (repo sementara + dua remote bare) dan tes UI Electron (Playwright)
+main/       main process: git, GitHub (gh), GitLab (REST), release flow, storage, IPC
+preload/    a narrow bridge to the renderer
+renderer/   UI (HTML + ES modules), styled by the KarirKit design system
+src/        app.css, built by Tailwind into renderer/vendor/
+scripts/    build-assets.mjs (CSS + assets), package.mjs (standalone app)
+test/       backend tests (temp repos + two bare remotes) and Electron UI tests (Playwright)
 ```
 
-Data aplikasi (daftar repo, pengaturan, log aktivitas, token terenkripsi) ada di folder data pengguna Electron; lokasinya tampil di **Pengaturan → Tentang**.
+App data (repo list, settings, activity log, encrypted token) lives in Electron's user data folder; its location is shown under **Settings → About**.
 
-## Catatan: dependensi design system
+## Note: design system dependency
 
-`package.json` memakai `"@foxtrot-sevima/karirkit": "file:../../SEVIMA/Foxtrot/design-system"` — tautan lokal ke repo design system di komputer ini. Sebelum repo ini di-clone di komputer lain (atau dipasang di CI), ganti dengan versi dari registry paket (mis. `"^1.3.4"` plus `.npmrc` untuk registry-nya). Aplikasi hasil `npm run package` tidak butuh dependensi ini lagi karena CSS, font, logo, dan helper JS sudah disalin ke `renderer/`.
+`package.json` uses `"@foxtrot-sevima/karirkit": "file:../../SEVIMA/Foxtrot/design-system"`, a local link to the design system repo on this computer. Before cloning this repo on another machine (or using it in CI), replace it with a version from the package registry (for example `"^1.3.4"`, plus an `.npmrc` for the registry). The app produced by `npm run package` no longer needs this dependency, because the CSS, fonts, logo, and JS helpers are already copied into `renderer/`.
 
-## Variabel lingkungan (untuk tes/debug)
+The design system's own UI text is still Indonesian in a few places (table pagination, toast close button). `scripts/build-assets.mjs` translates those strings in the copied files under `renderer/vendor/`, and prints a warning if the source text changes after a design system upgrade.
 
-`HUB_USER_DATA` (folder data), `HUB_GH_BIN` (ganti `gh`), `HUB_POLL_MS` (interval tunggu check), `HUB_GITLAB_TOKEN`, `HUB_PICK_FOLDER` (lewati dialog pilih folder).
+## Environment variables (for tests and debugging)
+
+`HUB_USER_DATA` (data folder), `HUB_GH_BIN` (replace `gh`), `HUB_POLL_MS` (check polling interval), `HUB_GITLAB_TOKEN`, `HUB_PICK_FOLDER` (skip the folder picker dialog).
