@@ -8,7 +8,7 @@ Think of the GitHub/GitLab pages you already know, but one screen for all of you
 
 | Page | What it does |
 | --- | --- |
-| **Dashboard** | Status of every repo (branch, local changes, ahead/behind, GitHub ↔ GitLab parity). Select several repos, then **Push** or **Sync GitLab** in one go. |
+| **Dashboard** | Status of every repo (branch, local changes, ahead/behind, GitHub ↔ GitLab parity). Select several repos, then **Fetch**, **Pull**, **Push**, or **Sync GitLab** in one go. |
 | **Pull Requests** | GitHub PRs and GitLab MRs from all repos in one table. Filter, search, open details (checks, commits, diff, discussion), **Approve**, **Request changes**, comment, **Merge**, close, and **Create PR/MR**. Bulk approve and merge. |
 | **Release** | A one-click flow, for example `karirkit/<version>` → `master` → `karirkit/vercel`: create or reuse the PR, wait for green checks, merge, mirror to GitLab, and watch the deployment. Stops at the first failure and can be cancelled. |
 | **Repositories** | The repos you manage, **fully editable by you**: add from a folder, scan a parent folder, edit, or remove from the list. Each repo has its own release flow. |
@@ -49,6 +49,7 @@ Options: merge method (`merge`/`squash`/`rebase`), wait for green checks, mirror
 ## Safety guarantees
 
 - **No force-push**, **no branch or tag deletion**, **no folder deletion**. Removing a repo from the list only removes the entry in the app.
+- **Pull is fast-forward only.** It never creates a merge commit, rebases, resets, or overwrites changes. It refuses when tracked files have uncommitted changes, the branch has no upstream, or the history has diverged; untracked files are left alone.
 - Every action that changes something needs confirmation in the UI **and** is rejected by the main process if it arrives without `confirmed: true`.
 - GitLab mirroring only creates new refs or fast-forwards; an existing tag is never moved.
 - `git`/`gh` commands run without a shell (`execFile`); all ref names are validated.
