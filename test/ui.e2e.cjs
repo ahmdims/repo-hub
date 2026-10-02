@@ -78,6 +78,31 @@ const ok = (name, cond, extra) => { if (!cond) fails++; console.log(`${cond ? 'P
     await page.waitForFunction(() => /Identical/.test(document.getElementById('repoBody').innerText), null, { timeout: 25000 });
     ok('dasbor: mirror Alfa kini "Identik"', /Identical/.test(await rowText(idA)));
 
+    /* -------------------------------------------------- 3b. pull (fast-forward) */
+    // orang lain mendorong 1 commit ke remote Beta
+    const otherDir = nodePath.join(B.root, 'other-beta');
+    sh(B.root, 'clone', '-q', B.gh, otherDir);
+    fs.appendFileSync(nodePath.join(otherDir, 'dari-orang-lain.txt'), 'x\n'); sh(otherDir, 'add', '-A'); sh(otherDir, 'commit', '-q', '-m', 'commit orang lain'); sh(otherDir, 'push', '-q', 'origin', 'master');
+    const remoteHead = sh(otherDir, 'rev-parse', 'HEAD');
+    await page.click(`#repoBody tr[data-id="${idB}"] [data-act="pull"]`);
+    await page.waitForFunction(() => /Will fast-forward 1 commit from origin\/master/.test((document.getElementById('hubModalPanel') || {}).innerText || ''), null, { timeout: 30000 });
+    ok('pull: dialog menjelaskan fast-forward 1 commit dari origin/master', (await page.locator('[data-pull] [data-pull-check]').count()) === 1 && /Fast-forward only/.test(await page.locator('#hubModalPanel').innerText()));
+    await shot('03b-pull-dialog');
+    await page.click('#hubModalPanel [data-run]');
+    await page.waitForFunction(() => /✓ Fast-forwarded 1 commit/.test(document.getElementById('hubModalPanel').innerText), null, { timeout: 30000 });
+    ok('pull: folder kerja Beta maju ke commit orang lain (tanpa merge commit)', sh(B.work, 'rev-parse', 'HEAD') === remoteHead && fs.existsSync(nodePath.join(B.work, 'dari-orang-lain.txt')) && sh(B.work, 'rev-list', '--merges', '--count', 'HEAD') === '0');
+    await page.click('#hubModalPanel [data-dialog-close]');
+    await page.waitForFunction(() => !document.getElementById('hubModal').classList.contains('is-open'));
+    ok('pull: toast sukses muncul', /Pull finished for 1 repo/.test(await toastText()));
+    // massal: semua sudah terbaru -> tidak ada yang bisa di-pull
+    await page.locator('#repoTable [data-table-select-all]').check();
+    await page.click('[data-bulk="pull"]');
+    await page.waitForFunction(() => (document.getElementById('hubModalPanel').innerText.match(/Already up to date/g) || []).length === 2, null, { timeout: 30000 });
+    ok('pull massal: kedua repo "Already up to date", tombol Pull now tidak ada', (await page.locator('#hubModalPanel [data-run]').count()) === 0);
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => !document.getElementById('hubModal').classList.contains('is-open'));
+    await page.locator('#repoTable [data-table-select-all]').uncheck();
+
     /* -------------------------------------------------- 4. PR / MR */
     await go('pull-request', '#prBody tr[data-key]');
     await page.waitForFunction(() => document.querySelectorAll('#prBody tr[data-key]').length === 5, null, { timeout: 20000 });
@@ -217,7 +242,7 @@ const ok = (name, cond, extra) => { if (!cond) fails++; console.log(`${cond ? 'P
     /* -------------------------------------------------- 7. aktivitas + pengaturan */
     await go('aktivitas', '#actTable');
     const act = await page.locator('#actTable tbody').innerText();
-    ok('aktivitas: push, mirror, review, merge, buat PR, rilis, dan repo tercatat', ['Push', 'Mirror', 'Review', 'Merge', 'Create PR/MR', 'Release', 'Add repo', 'Remove repo'].every((w) => act.includes(w)), act.replace(/\s+/g, ' ').slice(0, 100));
+    ok('aktivitas: push, mirror, review, merge, buat PR, rilis, dan repo tercatat', ['Push', 'Mirror', 'Pull', 'Review', 'Merge', 'Create PR/MR', 'Release', 'Add repo', 'Remove repo'].every((w) => act.includes(w)), act.replace(/\s+/g, ' ').slice(0, 100));
     ok('aktivitas: token tidak pernah tercatat (di layar maupun di berkas)', !/secret-token/.test(act) && !/secret-token/.test(fs.readFileSync(nodePath.join(userData, 'activity.json'), 'utf8')) && !/secret-token/.test(fs.readFileSync(nodePath.join(userData, 'config.json'), 'utf8')));
     await shot('11-aktivitas');
     await go('pengaturan', '[data-save-buffer]');
