@@ -197,6 +197,44 @@ test('GitLab: token salah ditolak dengan pesan jelas; tanpa token diberi petunju
   } finally { process.env.HUB_GITLAB_TOKEN = keep; gl.close(); rig.cleanup(); }
 });
 
+test('GitLab: tanpa token = MR nonaktif (bukan galat), GitHub tetap jalan, dashboard diberi tanda gitlabOff', async () => {
+  const rig = makeRig(); ghState();
+  const keep = process.env.HUB_GITLAB_TOKEN;
+  try {
+    delete process.env.HUB_GITLAB_TOKEN;
+    const { handlers, repo, store } = setup(rig, { gitlabBase: 'https://notoken.invalid' });
+    store.setSettings({ useGitCredential: false }); // jangan bergantung pada kredensial git mesin ini
+    const r = await handlers['pulls:list']({ repoIds: [repo.id] });
+    assert.deepEqual(r.errors, [], 'tanpa token bukan galat');
+    assert.deepEqual(r.disabled.map((d) => [d.platform, d.reason, d.host]), [['gitlab', 'no-token', 'notoken.invalid']]);
+    assert.ok(r.items.length > 0 && r.items.every((i) => i.platform === 'github'), 'PR GitHub tetap tampil');
+    const st = await handlers['status:refresh']({ ids: [repo.id], parity: false });
+    assert.equal(st.results[0].pulls.gitlabOff, true);
+    assert.deepEqual(st.results[0].pulls.errors, []);
+    const t = await handlers['repos:test']({ id: repo.id });
+    assert.equal(t.gitlab.ok, false); assert.equal(t.gitlab.code, 'NO_TOKEN');
+  } finally { if (keep !== undefined) process.env.HUB_GITLAB_TOKEN = keep; rig.cleanup(); }
+});
+
+test('auth: kredensial git hanya dipakai bila berbentuk token GitLab (kata sandi akun diabaikan)', async () => {
+  const { looksLikeToken, createAuth } = require('../main/auth');
+  for (const yes of ['glpat-abcdefghijklmnopqrst', 'gloas-0123456789abcdef', 'abcdefghij0123456789']) assert.equal(looksLikeToken(yes), true, yes);
+  for (const no of ['hunter2', 'my account password', 'short-pw', '']) assert.equal(looksLikeToken(no), false, no);
+
+  // end-to-end lewat `git credential fill` dengan helper palsu (helper kosong lebih dulu = abaikan helper mesin ini)
+  const keep = { ...process.env };
+  const helper = (pw) => `!f() { echo username=u; echo password=${pw}; }; f`;
+  const auth = createAuth(new Store(fs.mkdtempSync(path.join(os.tmpdir(), 'hub-auth-'))));
+  try {
+    delete process.env.HUB_GITLAB_TOKEN; delete process.env.GITLAB_TOKEN;
+    Object.assign(process.env, { GIT_CONFIG_COUNT: '2', GIT_CONFIG_KEY_0: 'credential.helper', GIT_CONFIG_VALUE_0: '', GIT_CONFIG_KEY_1: 'credential.helper' });
+    process.env.GIT_CONFIG_VALUE_1 = helper('hunter2');
+    assert.deepEqual(await auth.describe('pw.invalid'), { has: false, source: null }, 'kata sandi akun tidak dipakai sebagai token');
+    process.env.GIT_CONFIG_VALUE_1 = helper('glpat-abcdefghijklmnopqrst');
+    assert.deepEqual(await auth.describe('tok.invalid'), { has: true, source: 'git credentials' });
+  } finally { for (const k of Object.keys(process.env)) if (!(k in keep)) delete process.env[k]; Object.assign(process.env, keep); }
+});
+
 /* ------------------------------------------------------------------ release flow */
 test('Alur rilis: branch versi > master > vercel (PR dibuat, tunggu check, merge, mirror, deployment)', async () => {
   const rig = makeRig(); const gh = ghState({ defaultChecks: 'pending' });

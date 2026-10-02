@@ -39,6 +39,8 @@ The app uses your `gh` (GitHub CLI) login and never stores a GitHub token.
 
 ## 3. Connect GitLab
 
+> **A token is optional.** If you cannot create one (for example, your role does not allow it), skip this section. Push, fetch, and mirroring still work through git with your normal git login. Only GitLab merge requests (list, approve, merge, create) need a token; without one the app shows them as "off" instead of as an error.
+
 > **Order matters.** The GitLab card in Settings has **no host field**. The list of hosts is built automatically from the repos you have already added. If no repo with a GitLab remote has been added yet, you will only see *"No repos with GitLab yet. Add a repo that has a GitLab remote on the Repositories page."* So add a repo first (step 3.1), then enter the token (step 3.3).
 
 ### 3.1 Add a repo

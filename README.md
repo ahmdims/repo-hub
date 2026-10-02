@@ -22,7 +22,8 @@ Prerequisites: Node.js 20+, Git, and the [GitHub CLI](https://cli.github.com/) (
 ```bash
 npm install
 npm start          # builds assets, then opens the app
-npm test           # backend tests (13); UI tests: node test/ui.e2e.cjs
+npm test           # backend tests (15)
+npm run test:ui    # Electron UI tests (Playwright)
 npm run package    # standalone app at dist/Repo Hub-win32-x64/repo-hub.exe
 ```
 
@@ -32,6 +33,8 @@ For a step-by-step walkthrough (running the app and connecting GitHub and GitLab
 
 - **GitHub**: run `gh auth login` once. The app uses that `gh` login and does not store a GitHub token.
 - **GitLab**: create a *personal access token* (scope `api`) and paste it under **Settings → GitLab**. The token is stored encrypted by the operating system (Electron `safeStorage`). Alternatives: the `GITLAB_TOKEN` / `HUB_GITLAB_TOKEN` environment variable, or (optionally) a password already saved in the git credential manager, if it is actually a token.
+
+The GitLab token is optional. Without it, push, fetch, and mirroring still work through git (using your git login); only GitLab merge requests are unavailable, and the app shows them as "off" instead of as an error. A password stored in git is only used as a token if it looks like a GitLab token, so an account password is never sent to the API.
 
 ### Adding repos
 

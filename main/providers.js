@@ -27,7 +27,7 @@ function createProviders({ store, auth }) {
   async function listOne(repo, platform, state) {
     if (!hasPlatform(repo, platform)) return { items: [], error: null };
     const res = platform === 'github' ? await github.list(repo.github.repo, repo.id, { state }) : await gitlab.list(repo.gitlab.baseUrl, repo.gitlab.path, repo.id, { state });
-    return res.ok ? { items: res.items, error: null } : { items: [], error: res.error };
+    return res.ok ? { items: res.items, error: null } : { items: [], error: res.error, code: res.code };
   }
 
   return {
@@ -39,8 +39,11 @@ function createProviders({ store, auth }) {
       const results = await mapLimit(jobs, 4, async ({ repo, platform }) => ({ repo, platform, ...(await listOne(repo, platform, state)) }));
       const items = results.flatMap((r) => r.items.map((it) => ({ ...it, repoName: r.repo.name })));
       items.sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
-      const errors = results.filter((r) => r.error).map((r) => ({ repoId: r.repo.id, repoName: r.repo.name, platform: r.platform, error: r.error }));
-      return { ok: true, items, errors };
+      // GitLab tanpa token bukan galat: fitur MR-nya sekadar nonaktif (push/mirror/fetch memakai git biasa)
+      const off = (r) => r.code === 'NO_TOKEN';
+      const errors = results.filter((r) => r.error && !off(r)).map((r) => ({ repoId: r.repo.id, repoName: r.repo.name, platform: r.platform, error: r.error }));
+      const disabled = results.filter(off).map((r) => ({ repoId: r.repo.id, repoName: r.repo.name, platform: r.platform, reason: 'no-token', host: new URL(r.repo.gitlab.baseUrl).host }));
+      return { ok: true, items, errors, disabled };
     },
     async detail({ repoId, platform, id }) {
       const repo = repoOf(repoId); need(repo, platform);

@@ -11,6 +11,10 @@ const canEncrypt = () => !!(safeStorage && safeStorage.isEncryptionAvailable && 
 const encrypt = (text) => (canEncrypt() ? safeStorage.encryptString(text).toString('base64') : null);
 const decrypt = (b64) => { try { return canEncrypt() ? safeStorage.decryptString(Buffer.from(b64, 'base64')) : null; } catch { return null; } };
 
+// Bentuk token GitLab: berawalan (glpat-, gloas-, ...) atau token pribadi lama (tepat 20 karakter).
+// Kata sandi akun biasa tidak cocok, jadi tidak pernah dikirim ke API sebagai token.
+const looksLikeToken = (s) => /^gl[a-z]{2,8}-[\w-]{10,}$/.test(s) || /^[A-Za-z0-9_-]{20}$/.test(s);
+
 const cache = new Map(); // host -> { token, source, at }
 const TTL = 5 * 60 * 1000;
 
@@ -19,7 +23,8 @@ function createAuth(store) {
     const r = await run('git', ['credential', 'fill'], { input: `protocol=https\nhost=${host}\n\n`, timeout: 15000 });
     if (!r.ok) return null;
     const m = /^password=(.+)$/m.exec(r.stdout);
-    return m ? m[1].trim() : null;
+    const pw = m ? m[1].trim() : null;
+    return pw && looksLikeToken(pw) ? pw : null;
   }
 
   async function resolve(host) {
@@ -56,4 +61,4 @@ function createAuth(store) {
   };
 }
 
-module.exports = { createAuth };
+module.exports = { createAuth, looksLikeToken };

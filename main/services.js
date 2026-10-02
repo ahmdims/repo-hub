@@ -38,7 +38,7 @@ function createServices({ store, emit = () => {} }) {
     if (fetch) out.fetch = await git.fetchOrigin(repo.path);
     const jobs = [git.status(repo.path).then((s) => { out.status = s; })];
     if (parity && repo.github && repo.gitlab) jobs.push(git.parity(repo.path, { githubUrl: repo.github.url, gitlabUrl: repo.gitlab.url, ignoreRefs: repo.ignoreRefs }).then((p) => { out.parity = p; }));
-    if (pulls) jobs.push(providers.list({ repoIds: [repo.id], state: 'open' }).then((l) => { out.pulls = { github: l.items.filter((x) => x.platform === 'github').length, gitlab: l.items.filter((x) => x.platform === 'gitlab').length, errors: l.errors.map((e) => `${e.platform}: ${e.error}`) }; }));
+    if (pulls) jobs.push(providers.list({ repoIds: [repo.id], state: 'open' }).then((l) => { out.pulls = { github: l.items.filter((x) => x.platform === 'github').length, gitlab: l.items.filter((x) => x.platform === 'gitlab').length, gitlabOff: l.disabled.some((d) => d.platform === 'gitlab'), errors: l.errors.map((e) => `${e.platform}: ${e.error}`) }; }));
     await Promise.all(jobs);
     return out;
   }
@@ -88,7 +88,7 @@ function createServices({ store, emit = () => {} }) {
       const r = repoOf(p.id);
       const out = { ok: true, folder: fs.existsSync(r.path), github: null, gitlab: null };
       if (r.github) { const i = await github.repoInfo(r.github.repo); out.github = i.ok ? { ok: true, permission: i.info.viewerPermission, isPrivate: i.info.isPrivate, defaultBranch: i.info.defaultBranchRef && i.info.defaultBranchRef.name } : { ok: false, error: i.error }; }
-      if (r.gitlab) { const i = await providers.gitlab.repoInfo(r.gitlab.baseUrl, r.gitlab.path); out.gitlab = i.ok ? { ok: true, defaultBranch: i.info.defaultBranch, visibility: i.info.visibility, accessLevel: i.info.accessLevel } : { ok: false, error: i.error }; }
+      if (r.gitlab) { const i = await providers.gitlab.repoInfo(r.gitlab.baseUrl, r.gitlab.path); out.gitlab = i.ok ? { ok: true, defaultBranch: i.info.defaultBranch, visibility: i.info.visibility, accessLevel: i.info.accessLevel } : { ok: false, error: i.error, code: i.code }; }
       return out;
     },
 

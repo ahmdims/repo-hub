@@ -43,9 +43,10 @@ function prCell(r) {
   if (!c) return html`<span class="text-xs text-slate-400">${state.loading.has(r.id) ? 'Loading…' : '—'}</span>`;
   const parts = [];
   if (r.github) parts.push(`GH ${c.github}`);
-  if (r.gitlab) parts.push(`GL ${c.gitlab}`);
-  const title = c.errors && c.errors.length ? c.errors.join(' | ') : '';
-  return html`<a href="#/pull-request" class="whitespace-nowrap text-sm font-medium ${c.github + c.gitlab ? 'text-primary-600' : 'text-slate-500'} hover:underline" title="${title}">${parts.join(' · ')}${title ? ' ⚠' : ''}</a>`;
+  if (r.gitlab) parts.push(c.gitlabOff ? 'GL off' : `GL ${c.gitlab}`);
+  const warn = !!(c.errors && c.errors.length);
+  const title = [warn ? c.errors.join(' | ') : '', c.gitlabOff ? 'GitLab MRs are off: no GitLab token is set. Push, fetch and sync still work.' : ''].filter(Boolean).join(' | ');
+  return html`<a href="#/pull-request" class="whitespace-nowrap text-sm font-medium ${c.github + c.gitlab ? 'text-primary-600' : 'text-slate-500'} hover:underline" title="${title}">${parts.join(' · ')}${warn ? ' ⚠' : ''}</a>`;
 }
 
 function rowHtml(r, i) {
