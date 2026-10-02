@@ -109,12 +109,12 @@ test('GitHub: detail, diff, review (approve, tolak approve PR sendiri, request c
     const diff = await handlers['pulls:diff']({ repoId: repo.id, platform: 'github', id: 1 });
     assert.match(diff.patch, /\+baru/);
 
-    assert.match((await handlers['pulls:review']({ repoId: repo.id, platform: 'github', id: 1, action: 'approve' })).error, /konfirmasi/);
+    assert.match((await handlers['pulls:review']({ repoId: repo.id, platform: 'github', id: 1, action: 'approve' })).error, /confirmation/);
     assert.equal((await handlers['pulls:review']({ repoId: repo.id, platform: 'github', id: 1, action: 'approve', confirmed: true })).ok, true);
     assert.equal(gh.read().prs[0].reviewDecision, 'APPROVED');
     const own = await handlers['pulls:review']({ repoId: repo.id, platform: 'github', id: 2, action: 'approve', confirmed: true });
     assert.equal(own.ok, false); assert.match(own.error, /own pull request/i);
-    assert.match((await handlers['pulls:review']({ repoId: repo.id, platform: 'github', id: 1, action: 'changes', body: '  ', confirmed: true })).error, /wajib/);
+    assert.match((await handlers['pulls:review']({ repoId: repo.id, platform: 'github', id: 1, action: 'changes', body: '  ', confirmed: true })).error, /required/);
     assert.equal((await handlers['pulls:review']({ repoId: repo.id, platform: 'github', id: 1, action: 'changes', body: 'Tolong perbaiki', confirmed: true })).ok, true);
     assert.equal(gh.read().prs[0].reviewDecision, 'CHANGES_REQUESTED');
     assert.equal((await handlers['pulls:comment']({ repoId: repo.id, platform: 'github', id: 1, body: 'Halo' })).ok, true);
@@ -130,7 +130,7 @@ test('GitHub: detail, diff, review (approve, tolak approve PR sendiri, request c
     assert.equal(c.ok, true); assert.equal(c.results[0].number, 10);
     assert.equal(gh.read().prs.at(-1).draft, true);
     assert.equal((await handlers['pulls:create']({ repoId: repo.id, head: '--x', base: 'master', title: 't', confirmed: true })).ok, false);
-    assert.match((await handlers['pulls:create']({ repoId: repo.id, head: 'a', base: 'b', title: ' ', confirmed: true })).error, /Judul/);
+    assert.match((await handlers['pulls:create']({ repoId: repo.id, head: 'a', base: 'b', title: ' ', confirmed: true })).error, /Title/);
     const log = (await handlers['activity:list']()).items.map((x) => x.action);
     assert.ok(log.includes('pulls.merge') && log.includes('pulls.review') && log.includes('pulls.create'));
   } finally { rig.cleanup(); }
@@ -160,7 +160,7 @@ test('GitLab: daftar MR + approval, detail (diff, job, komentar), approve/unappr
     assert.equal((await handlers['pulls:review']({ repoId: repo.id, platform: 'gitlab', id: 7, action: 'approve', confirmed: true })).ok, true);
     assert.equal((await handlers['pulls:detail']({ repoId: repo.id, platform: 'gitlab', id: 7 })).item.review.state, 'approved');
     assert.equal((await handlers['pulls:review']({ repoId: repo.id, platform: 'gitlab', id: 7, action: 'unapprove', confirmed: true })).ok, true);
-    assert.match((await handlers['pulls:review']({ repoId: repo.id, platform: 'gitlab', id: 7, action: 'changes', body: 'x', confirmed: true })).error, /tidak didukung/);
+    assert.match((await handlers['pulls:review']({ repoId: repo.id, platform: 'gitlab', id: 7, action: 'changes', body: 'x', confirmed: true })).error, /not supported/);
     assert.equal((await handlers['pulls:comment']({ repoId: repo.id, platform: 'gitlab', id: 7, body: 'Mantap' })).ok, true);
 
     const draftMerge = await handlers['pulls:merge']({ repoId: repo.id, platform: 'gitlab', id: 8, confirmed: true });
@@ -193,7 +193,7 @@ test('GitLab: token salah ditolak dengan pesan jelas; tanpa token diberi petunju
     const { handlers, repo } = setup(rig, { gitlabBase: gl.base });
     process.env.HUB_GITLAB_TOKEN = 'salah';
     const r = await handlers['pulls:list']({ repoIds: [repo.id], platforms: ['gitlab'] });
-    assert.match(r.errors[0].error, /401|ditolak/);
+    assert.match(r.errors[0].error, /401|rejected/);
   } finally { process.env.HUB_GITLAB_TOKEN = keep; gl.close(); rig.cleanup(); }
 });
 
@@ -209,13 +209,13 @@ test('Alur rilis: branch versi > master > vercel (PR dibuat, tunggu check, merge
     const plan = await handlers['release:plan']({ repoId: repo.id, branch: 'karirkit/9.9.9' });
     assert.deepEqual(plan.plan.steps, [{ from: 'karirkit/9.9.9', to: 'master' }, { from: 'master', to: 'karirkit/vercel' }]);
     assert.equal(plan.plan.mirror, true);
-    assert.match((await handlers['release:run']({ repoId: repo.id, branch: 'karirkit/9.9.9' })).error, /konfirmasi/);
+    assert.match((await handlers['release:run']({ repoId: repo.id, branch: 'karirkit/9.9.9' })).error, /confirmation/);
 
     const events = [];
-    const svc2 = createServices({ store: new Store(fs.mkdtempSync(path.join(rig.root, 'data-'))), emit: (c, d) => events.push(d) });
+    // check awalnya "pending"; baru lulus setelah progres "menunggu check" muncul (tanpa timer, agar tidak bergantung kecepatan mesin)
+    const passChecks = () => gh.write((s) => { s.prs.forEach((p) => { if (p.state === 'open') p.checks = 'success'; }); s.defaultChecks = 'success'; });
+    const svc2 = createServices({ store: new Store(fs.mkdtempSync(path.join(rig.root, 'data-'))), emit: (c, d) => { events.push(d); if (d.phase === 'wait' && /check/i.test(d.message)) passChecks(); } });
     const repo2 = svc2.store.addRepo({ name: 'Demo', path: rig.work, github: { repo: 'org/demo', url: rig.gh }, gitlab: { baseUrl: 'https://gitlab.invalid', path: 'grp/demo', url: rig.gl } }).repo;
-    // check awalnya "pending", lalu lulus setelah 200 ms
-    setTimeout(() => gh.write((s) => { s.prs.forEach((p) => { if (p.state === 'open') p.checks = 'success'; }); s.defaultChecks = 'success'; }), 200);
     const res = await svc2.handlers['release:run']({ repoId: repo2.id, branch: 'karirkit/9.9.9', runId: 'r1', confirmed: true });
     assert.equal(res.ok, true);
     assert.deepEqual(res.steps.map((s) => s.status), ['done', 'done']);
@@ -239,7 +239,7 @@ test('Alur rilis: berhenti di check gagal / PR draft / tanpa perubahan dilewati 
     let gh = ghState({ defaultChecks: 'failure' });
     let { handlers, repo } = mk();
     let r = await handlers['release:run']({ repoId: repo.id, branch: 'karirkit/8.8.8', runId: 'a', confirmed: true });
-    assert.equal(r.ok, false); assert.equal(r.steps[0].status, 'failed'); assert.match(r.steps[0].note, /Check gagal: build/);
+    assert.equal(r.ok, false); assert.equal(r.steps[0].status, 'failed'); assert.match(r.steps[0].note, /Checks failed: build/);
     assert.equal(gh.read().prs.find((p) => p.number === 10).state, 'open'); // tidak di-merge
 
     gh = ghState({ prs: [{ number: 5, title: 'Draf', head: 'karirkit/8.8.8', base: 'master', author: 'dimas', state: 'open', checks: 'success', draft: true }] });
@@ -257,7 +257,7 @@ test('Alur rilis: berhenti di check gagal / PR draft / tanpa perubahan dilewati 
     const p = handlers['release:run']({ repoId: repo.id, branch: 'karirkit/8.8.8', runId: 'd', confirmed: true });
     setTimeout(() => handlers['release:cancel']({ runId: 'd' }), 250);
     r = await p;
-    assert.equal(r.ok, false); assert.match(r.steps[0].note, /Dibatalkan/);
+    assert.equal(r.ok, false); assert.match(r.steps[0].note, /Cancelled/);
     void gh;
   } finally { rig.cleanup(); }
 });

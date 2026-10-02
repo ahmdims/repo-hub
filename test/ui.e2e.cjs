@@ -33,14 +33,14 @@ const ok = (name, cond, extra) => { if (!cond) fails++; console.log(`${cond ? 'P
   try {
     /* -------------------------------------------------- 1. dasbor */
     await page.waitForSelector('#repoBody tr[data-id]', { timeout: 20000 });
-    await page.waitForFunction(() => !document.querySelector('#repoBody tr.repo-row-loading') && /Identik|ref beda/.test(document.getElementById('repoBody').innerText), null, { timeout: 25000 });
+    await page.waitForFunction(() => !document.querySelector('#repoBody tr.repo-row-loading') && /Identical|differing ref/.test(document.getElementById('repoBody').innerText), null, { timeout: 25000 });
     const idA = (await page.locator('#repoBody tr').first().getAttribute('data-id'));
     const idB = (await page.locator('#repoBody tr').nth(1).getAttribute('data-id'));
     const kpi = (await page.locator('#dashKpi').innerText()).replace(/\s+/g, ' ');
-    ok('dasbor: 2 repo, 1 perlu push, 1 perubahan lokal, 5 PR/MR, 1 mirror beda', /2 Repo dikelola/.test(kpi) && /1 Perlu push/.test(kpi) && /1 Ada perubahan lokal/.test(kpi) && /5 PR\/MR terbuka/.test(kpi) && /1 Mirror belum identik/.test(kpi), kpi);
+    ok('dasbor: 2 repo, 1 perlu push, 1 perubahan lokal, 5 PR/MR, 1 mirror beda', /2 Managed repos/.test(kpi) && /1 Needs push/.test(kpi) && /1 Local changes/.test(kpi) && /5 Open PRs\/MRs/.test(kpi) && /1 Mirrors out of sync/.test(kpi), kpi);
     const ta = await rowText(idA);
-    ok('dasbor: baris Alfa menampilkan branch, perubahan, perlu push, ref beda, GH 3 · GL 2', /master/.test(ta) && /1 perubahan/.test(ta) && /1 perlu push/.test(ta) && /ref beda/.test(ta) && /GH 3/.test(ta) && /GL 2/.test(ta), ta.replace(/\s+/g, ' ').slice(0, 160));
-    ok('dasbor: baris Beta sinkron, mirror "—"', /Sinkron/.test(await rowText(idB)));
+    ok('dasbor: baris Alfa menampilkan branch, perubahan, perlu push, ref beda, GH 3 · GL 2', /master/.test(ta) && /1 change/.test(ta) && /1 to push/.test(ta) && /differing ref/.test(ta) && /GH 3/.test(ta) && /GL 2/.test(ta), ta.replace(/\s+/g, ' ').slice(0, 160));
+    ok('dasbor: baris Beta sinkron, mirror "—"', /In sync/.test(await rowText(idB)));
     ok('dasbor: tidak ada scroll horizontal halaman, aksi terlihat', await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth) && await page.locator(`#repoBody tr[data-id="${idA}"] [data-act="push"]`).isVisible());
     await shot('01-dasbor');
 
@@ -50,38 +50,38 @@ const ok = (name, cond, extra) => { if (!cond) fails++; console.log(`${cond ? 'P
     await page.click('[data-bulk="push"]');
     await page.waitForSelector('#hubModalPanel [data-push]');
     const pushText = await page.locator('#hubModalPanel').innerText();
-    ok('push: dialog memuat 2 repo, peringatan perubahan belum commit, dan opsi GitHub/GitLab', (await page.locator('[data-push]').count()) === 2 && /belum di-commit/.test(pushText) && (await page.locator('[data-push] [data-target]').count()) === 3, pushText.replace(/\s+/g, ' ').slice(0, 140));
+    ok('push: dialog memuat 2 repo, peringatan perubahan belum commit, dan opsi GitHub/GitLab', (await page.locator('[data-push]').count()) === 2 && /uncommitted/.test(pushText) && (await page.locator('[data-push] [data-target]').count()) === 3, pushText.replace(/\s+/g, ' ').slice(0, 140));
     await shot('02-push-dialog');
     await page.click('#hubModalPanel [data-run]');
-    await page.waitForFunction(() => [...document.querySelectorAll('[data-push] [data-result]')].every((r) => /[✓✕]|Dilewati/.test(r.innerText)), null, { timeout: 30000 });
+    await page.waitForFunction(() => [...document.querySelectorAll('[data-push] [data-result]')].every((r) => /[✓✕]|Skipped/.test(r.innerText)), null, { timeout: 30000 });
     const res = (await page.locator('#hubModalPanel').innerText()).replace(/\s+/g, ' ');
-    ok('push: Alfa terkirim ke GitHub dan GitLab, Beta sudah terbaru', /✓ GitHub/.test(res) && /✓ GitLab/.test(res) && /sudah terbaru/.test(res) && !/✕/.test(res), res.slice(-200));
+    ok('push: Alfa terkirim ke GitHub dan GitLab, Beta sudah terbaru', /✓ GitHub/.test(res) && /✓ GitLab/.test(res) && /up to date/.test(res) && !/✕/.test(res), res.slice(-200));
     ok('push: GitLab benar-benar menerima commit (SHA sama dengan lokal)', sh(A.gl, 'rev-parse', 'refs/heads/master') === A.sh('rev-parse', 'HEAD'));
     await page.click('#hubModalPanel [data-dialog-close]');
     await page.waitForFunction(() => !document.getElementById('hubModal').classList.contains('is-open'));
-    ok('push: toast sukses muncul', /Push selesai/.test(await toastText()));
+    ok('push: toast sukses muncul', /Push finished/.test(await toastText()));
 
     /* -------------------------------------------------- 3. mirror */
-    await page.waitForFunction(() => /Sinkron/.test(document.getElementById('repoBody').innerText) && !/perlu push/.test(document.getElementById('repoBody').innerText), null, { timeout: 25000 });
-    ok('dasbor: setelah push, posisi Alfa "Sinkron" (tidak ada "perlu push")', !/perlu push/.test(await rowText(idA)));
-    ok('dasbor: mirror Alfa masih beda (branch rilis hanya di GitHub)', /ref beda/.test(await rowText(idA)));
+    await page.waitForFunction(() => /In sync/.test(document.getElementById('repoBody').innerText) && !/to push/.test(document.getElementById('repoBody').innerText), null, { timeout: 25000 });
+    ok('dasbor: setelah push, posisi Alfa "Sinkron" (tidak ada "perlu push")', !/to push/.test(await rowText(idA)));
+    ok('dasbor: mirror Alfa masih beda (branch rilis hanya di GitHub)', /differing ref/.test(await rowText(idA)));
     await page.locator('#repoTable [data-table-select-all]').uncheck();
     await page.click(`#repoBody tr[data-id="${idA}"] [data-act="mirror"]`);
     await page.waitForSelector('#hubModalPanel [data-mirror]');
-    await page.waitForFunction(() => /branch baru/.test(document.getElementById('hubModalPanel').innerText), null, { timeout: 20000 });
-    ok('mirror: rencana menyebut 1 branch baru (karirkit/9.9.9)', /1 branch baru:\s*karirkit\/9\.9\.9/.test((await page.locator('#hubModalPanel').innerText()).replace(/\s+/g, ' ')));
+    await page.waitForFunction(() => /new branch/.test(document.getElementById('hubModalPanel').innerText), null, { timeout: 20000 });
+    ok('mirror: rencana menyebut 1 branch baru (karirkit/9.9.9)', /1 new branch:\s*karirkit\/9\.9\.9/.test((await page.locator('#hubModalPanel').innerText()).replace(/\s+/g, ' ')));
     await shot('03-mirror-dialog');
     await page.click('#hubModalPanel [data-run]');
-    await page.waitForFunction(() => /✓ 1 ref disalin/.test(document.getElementById('hubModalPanel').innerText), null, { timeout: 30000 });
+    await page.waitForFunction(() => /✓ 1 ref copied/.test(document.getElementById('hubModalPanel').innerText), null, { timeout: 30000 });
     ok('mirror: GitLab menerima branch rilis', /karirkit\/9\.9\.9/.test(sh(A.gl, 'branch', '--list', 'karirkit/9.9.9')));
     await page.click('#hubModalPanel [data-dialog-close]');
-    await page.waitForFunction(() => /Identik/.test(document.getElementById('repoBody').innerText), null, { timeout: 25000 });
-    ok('dasbor: mirror Alfa kini "Identik"', /Identik/.test(await rowText(idA)));
+    await page.waitForFunction(() => /Identical/.test(document.getElementById('repoBody').innerText), null, { timeout: 25000 });
+    ok('dasbor: mirror Alfa kini "Identik"', /Identical/.test(await rowText(idA)));
 
     /* -------------------------------------------------- 4. PR / MR */
     await go('pull-request', '#prBody tr[data-key]');
     await page.waitForFunction(() => document.querySelectorAll('#prBody tr[data-key]').length === 5, null, { timeout: 20000 });
-    ok('PR/MR: 5 item (3 PR GitHub + 2 MR GitLab) dan statistik', (await page.locator('#prStats').innerText()).replace(/\s+/g, ' ').includes('5 terbuka'));
+    ok('PR/MR: 5 item (3 PR GitHub + 2 MR GitLab) dan statistik', (await page.locator('#prStats').innerText()).replace(/\s+/g, ' ').includes('5 open'));
     ok('PR/MR: judul berisi <script> tampil sebagai teks (aman XSS), bukan elemen', await page.evaluate(() => document.querySelectorAll('#view script, #view img[src="x"]').length === 0) && /<script>alert\(1\)<\/script>/.test(await page.locator('#prBody').innerText()));
     await page.selectOption('[data-filter="platform"]', 'gitlab');
     await page.waitForFunction(() => document.querySelectorAll('#prBody tr[data-key]').length === 2, null, { timeout: 15000 });
@@ -109,7 +109,7 @@ const ok = (name, cond, extra) => { if (!cond) fails++; console.log(`${cond ? 'P
     await page.click('#hubModalPanel [data-approve]');
     await page.waitForSelector('#hubModalPanel [data-go]');
     await page.click('#hubModalPanel [data-go]');
-    await page.waitForFunction(() => /✓ disetujui/.test(document.getElementById('hubModalPanel').innerText), null, { timeout: 15000 });
+    await page.waitForFunction(() => /✓ approved/.test(document.getElementById('hubModalPanel').innerText), null, { timeout: 15000 });
     ok('approve: PR #1 disetujui (status di GitHub palsu = APPROVED)', gh.read().prs[0].reviewDecision === 'APPROVED');
     await page.click('#hubModalPanel [data-dialog-close]');
     await page.waitForFunction(() => !document.getElementById('hubModal').classList.contains('is-open'));
@@ -130,7 +130,7 @@ const ok = (name, cond, extra) => { if (!cond) fails++; console.log(`${cond ? 'P
     await page.selectOption('#hubModalPanel [data-method]', 'squash');
     await shot('06-merge-dialog');
     await page.click('#hubModalPanel [data-go]');
-    await page.waitForFunction(() => (document.getElementById('hubModalPanel').innerText.match(/✓ ter-merge/g) || []).length === 2, null, { timeout: 20000 });
+    await page.waitForFunction(() => (document.getElementById('hubModalPanel').innerText.match(/✓ merged/g) || []).length === 2, null, { timeout: 20000 });
     ok('merge massal: PR GitHub (squash) dan MR GitLab ter-merge', gh.read().prs[0].state === 'merged' && gh.read().prs[0].mergedWith === '--squash' && gl.mrs[0].state === 'merged');
     await page.click('#hubModalPanel [data-dialog-close]');
     await page.waitForFunction(() => document.querySelectorAll('#prBody tr[data-key]').length === 3, null, { timeout: 20000 });
@@ -160,9 +160,9 @@ const ok = (name, cond, extra) => { if (!cond) fails++; console.log(`${cond ? 'P
     await page.waitForSelector('#hubModalPanel [data-confirm]');
     ok('rilis: dialog konfirmasi menampilkan urutan dan peringatan', /karirkit\/9\.9\.9/.test(await page.locator('#hubModalPanel').innerText()) && /master/.test(await page.locator('#hubModalPanel').innerText()));
     await page.click('#hubModalPanel [data-confirm]');
-    await page.waitForFunction(() => /Rilis selesai/.test(document.getElementById('view').innerText), null, { timeout: 45000 });
+    await page.waitForFunction(() => /Release complete/.test(document.getElementById('view').innerText), null, { timeout: 45000 });
     const rel = (await page.locator('#view').innerText()).replace(/\s+/g, ' ');
-    ok('rilis: 2 dari 2 langkah selesai, PR terbuka dipakai ulang, mirror + deployment dilaporkan', /2 dari 2 langkah selesai/.test(rel) && /Memakai PR terbuka #10/.test(rel) && /Mirror GitLab/.test(rel) && /success/.test(rel), rel.slice(rel.indexOf('Rilis selesai'), rel.indexOf('Rilis selesai') + 220));
+    ok('rilis: 2 dari 2 langkah selesai, PR terbuka dipakai ulang, mirror + deployment dilaporkan', /2 of 2 steps completed/.test(rel) && /Using open PR #10/.test(rel) && /GitLab mirror/.test(rel) && /success/.test(rel), rel.slice(rel.indexOf('Release complete'), rel.indexOf('Release complete') + 220));
     const prs = gh.read().prs.filter((p) => p.number >= 10);
     ok('rilis: kedua PR ter-merge (branch -> master, master -> karirkit/vercel)', prs.length === 2 && prs.every((p) => p.state === 'merged') && prs[1].head === 'master' && prs[1].base === 'karirkit/vercel', JSON.stringify(prs.map((p) => [p.number, p.head, p.base, p.state])));
     await shot('09-rilis-selesai');
@@ -186,7 +186,7 @@ const ok = (name, cond, extra) => { if (!cond) fails++; console.log(`${cond ? 'P
     await page.fill('#hubModalPanel [name="name"]', '');
     await page.click('#hubModalPanel [data-save]');
     await page.waitForSelector('#hubModalPanel [data-error]:not(.hidden)', { timeout: 5000 });
-    ok('ubah repo: nama kosong ditolak dengan pesan galat', /Nama repo wajib/.test(await page.locator('#hubModalPanel [data-error]').innerText()));
+    ok('ubah repo: nama kosong ditolak dengan pesan galat', /Repo name is required/.test(await page.locator('#hubModalPanel [data-error]').innerText()));
     await page.fill('#hubModalPanel [name="name"]', 'Proyek Gamma');
     await page.click('#hubModalPanel [data-save]');
     await page.waitForFunction(() => !document.getElementById('hubModal').classList.contains('is-open'), null, { timeout: 15000 });
@@ -195,14 +195,14 @@ const ok = (name, cond, extra) => { if (!cond) fails++; console.log(`${cond ? 'P
     // uji koneksi
     await page.locator('#view tbody tr').first().locator('[data-act="test"]').click();
     await page.waitForSelector('#hubModalPanel :text("GitHub")', { timeout: 15000 });
-    await page.waitForFunction(() => /Level akses: 30/.test(document.getElementById('hubModalPanel').innerText), null, { timeout: 15000 });
-    ok('uji koneksi: GitHub (WRITE) dan GitLab (level 30) terbaca', /Akses: WRITE/.test(await page.locator('#hubModalPanel').innerText()));
+    await page.waitForFunction(() => /Access level: 30/.test(document.getElementById('hubModalPanel').innerText), null, { timeout: 15000 });
+    ok('uji koneksi: GitHub (WRITE) dan GitLab (level 30) terbaca', /Access: WRITE/.test(await page.locator('#hubModalPanel').innerText()));
     await page.keyboard.press('Escape');
     await page.waitForFunction(() => !document.getElementById('hubModal').classList.contains('is-open'));
     // hapus dari daftar: folder tidak disentuh
     await page.locator('#view tbody tr').nth(2).locator('[data-act="remove"]').click();
     await page.waitForSelector('#hubModalPanel [data-confirm]');
-    ok('hapus repo: konfirmasi menegaskan folder tidak disentuh', /tidak disentuh/.test(await page.locator('#hubModalPanel').innerText()));
+    ok('hapus repo: konfirmasi menegaskan folder tidak disentuh', /not touched/.test(await page.locator('#hubModalPanel').innerText()));
     await page.click('#hubModalPanel [data-confirm]');
     await page.waitForFunction(() => document.querySelectorAll('#view tbody tr').length === 2, null, { timeout: 10000 });
     ok('hapus repo: kembali 2 baris, folder masih ada di disk', fs.existsSync(C.work));
@@ -217,12 +217,12 @@ const ok = (name, cond, extra) => { if (!cond) fails++; console.log(`${cond ? 'P
     /* -------------------------------------------------- 7. aktivitas + pengaturan */
     await go('aktivitas', '#actTable');
     const act = await page.locator('#actTable tbody').innerText();
-    ok('aktivitas: push, mirror, review, merge, buat PR, rilis, dan repo tercatat', ['Push', 'Mirror', 'Review', 'Merge', 'Buat PR/MR', 'Rilis', 'Tambah repo', 'Hapus repo'].every((w) => act.includes(w)), act.replace(/\s+/g, ' ').slice(0, 100));
+    ok('aktivitas: push, mirror, review, merge, buat PR, rilis, dan repo tercatat', ['Push', 'Mirror', 'Review', 'Merge', 'Create PR/MR', 'Release', 'Add repo', 'Remove repo'].every((w) => act.includes(w)), act.replace(/\s+/g, ' ').slice(0, 100));
     ok('aktivitas: token tidak pernah tercatat (di layar maupun di berkas)', !/secret-token/.test(act) && !/secret-token/.test(fs.readFileSync(nodePath.join(userData, 'activity.json'), 'utf8')) && !/secret-token/.test(fs.readFileSync(nodePath.join(userData, 'config.json'), 'utf8')));
     await shot('11-aktivitas');
     await go('pengaturan', '[data-save-buffer]');
-    await page.waitForFunction(() => /Terhubung: dimas/.test(document.getElementById('view').innerText), null, { timeout: 15000 });
-    ok('pengaturan: GitHub terhubung sebagai dimas, token GitLab dari env, tidak ada token di DOM', /sebagai\s+dimas/.test(await page.locator('#view').innerText()) && /Token dari: env/.test(await page.locator('#view').innerText()) && !/secret-token/.test(await page.content()));
+    await page.waitForFunction(() => /Connected: dimas/.test(document.getElementById('view').innerText), null, { timeout: 15000 });
+    ok('pengaturan: GitHub terhubung sebagai dimas, token GitLab dari env, tidak ada token di DOM', /as\s+dimas/.test(await page.locator('#view').innerText()) && /Token from: env/.test(await page.locator('#view').innerText()) && !/secret-token/.test(await page.content()));
     await page.fill('[data-buffer]', '2097152');
     await page.click('[data-save-buffer]');
     await page.waitForFunction(() => /2\.0 MB/.test(document.getElementById('view').innerText), null, { timeout: 8000 });
@@ -250,8 +250,8 @@ const ok = (name, cond, extra) => { if (!cond) fails++; console.log(`${cond ? 'P
     const iso = await page.evaluate(() => ({ require: typeof require, process: typeof process, hubKeys: Object.keys(window.hub).sort().join(',') }));
     ok('keamanan: tanpa require/process di UI; jembatan hanya platform/invoke/on', iso.require === 'undefined' && iso.process === 'undefined' && iso.hubKeys === 'invoke,on,platform', JSON.stringify(iso));
     const bad = await page.evaluate(() => window.hub.invoke('shell:exec', { cmd: 'calc' }));
-    ok('keamanan: channel di luar daftar ditolak', bad.ok === false && /tidak diizinkan/i.test(bad.error));
-    ok('keamanan: push tanpa konfirmasi ditolak oleh proses utama', (await page.evaluate((id) => window.hub.invoke('git:push', { repoId: id, branch: 'master' }), idA)).error.includes('konfirmasi'));
+    ok('keamanan: channel di luar daftar ditolak', bad.ok === false && /not allowed/i.test(bad.error));
+    ok('keamanan: push tanpa konfirmasi ditolak oleh proses utama', (await page.evaluate((id) => window.hub.invoke('git:push', { repoId: id, branch: 'master' }), idA)).error.includes('confirmation'));
     const ext = await page.evaluate(() => window.hub.invoke('shell:openExternal', { url: 'file:///C:/Windows/System32/calc.exe' }));
     ok('keamanan: openExternal menolak selain https', ext.ok === false);
 
