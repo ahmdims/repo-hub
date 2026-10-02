@@ -99,7 +99,43 @@ The token is encrypted with Windows DPAPI and stored in the app's user data fold
 
 To remove the token, expand **Replace token** and click **Delete token**.
 
-## 4. Other ways to provide the GitLab token (optional)
+## 4. Several accounts and SSH keys
+
+You can have more than one account on the same host (for example a personal and a work GitHub account) and accounts on different hosts. In Repo Hub an **account** is a provider, a host, optional owner names (the users or organizations it covers), and an optional SSH identity (an alias in `~/.ssh/config` plus a key file). Each repo remote belongs to one account, and the **Dashboard** has an **Account** column and a filter so you can group your repos.
+
+### 4.1 Detect your accounts
+
+Open **Accounts**. **Detected on this computer** lists suggestions built from your registered repos (one per host and owner, such as `github.com · ahmdims` and `github.com · foxtrot-sevima`), the aliases in `~/.ssh/config`, and your `gh` logins. Click **Add** for one suggestion or **Add all**.
+
+Repos are assigned automatically. An account whose owners match the repo's owner wins over an account without owners on the same host. If two accounts match, the repo is left unassigned and you choose its account in the repo form.
+
+### 4.2 See who is logged in (no token)
+
+Click **Check** on an account. Repo Hub runs `ssh -T git@<alias>` with that account's key and reads the greeting (for example "Hi ahmdims!" or "Welcome to GitLab, @user!"), so the account name shows up without any token. This works for GitLab too.
+
+If the result says the host is not trusted yet, click **Review host key**. Compare the fingerprint with the one the provider publishes, tick the checkbox, and click **Trust this host**. Only a key whose fingerprint equals the one you reviewed is added to `known_hosts`.
+
+### 4.3 Add a new account with its own key
+
+1. Click **Add account**. Choose the provider and host, enter a label and, optionally, the owners it covers.
+2. Under SSH identity choose **Create a new key** (or **Use an existing key**).
+3. A preview shows exactly what will be written: the new key file `~/.ssh/id_ed25519_<name>` and its `.pub`, and the `Host` block that will be appended to `~/.ssh/config`. `config` is backed up first as `config.bak-<timestamp>`, and an existing key is never overwritten. Confirm to create them.
+4. Copy the public key and add it on the provider's SSH keys page (the **Open … SSH keys page** button takes you there).
+5. Click **Test connection**, then **Save account**.
+
+The new key has no passphrase. To add one later, run `ssh-keygen -p -f ~/.ssh/<key file>` in a terminal.
+
+### 4.4 Switch a repo to SSH (and back)
+
+Open **Repositories**, edit the repo, and under the remote choose its **Account**, then click **Use SSH**. Repo Hub first proves that it can read the repo over SSH with that account. Only then does it rewrite the matching URL entries in the repo's git config and the URL stored in the app. If anything fails, nothing is changed. **Back to HTTPS** restores the previous URL.
+
+### 4.5 Limits to know
+
+- The app never opens your private keys and never deletes or overwrites anything in `~/.ssh`.
+- Pull requests on GitHub use the account that is active in `gh`. To work with another GitHub account, switch it with `gh auth switch`.
+- GitLab merge requests still need a token (see section 3.3). Everything else works over git or SSH.
+
+## 5. Other ways to provide the GitLab token (optional)
 
 The app looks for a token in this order and uses the first one it finds:
 
@@ -110,19 +146,22 @@ The app looks for a token in this order and uses the first one it finds:
 2. **Token saved in the app** (step 3.3).
 3. **Stored git credentials** from Git Credential Manager. This only works if the stored password is actually a *personal access token*, not your account password. You can turn this off with the checkbox under **Settings → GitLab** ("Try the stored git credential as a token when no token is set.").
 
-## 5. Troubleshooting
+## 6. Troubleshooting
 
 | Symptom | Cause / fix |
 | --- | --- |
 | *"No repos with GitLab yet…"* in Settings | No repo with a GitLab remote has been added. Do step 3.1. |
 | *"GitLab rejected the token (401). Check the token in Settings > GitLab."* | The token is wrong or expired. Create a new one and save it again (step 3.3). |
 | *"GitLab token for … is not set (Settings > GitLab)."* | No token exists for that host yet. Do step 3.3. |
-| The token field and **Save** button are disabled, with the warning *"Secure OS storage is not available; use the GITLAB_TOKEN environment variable."* | Use the `GITLAB_TOKEN` environment variable (section 4). |
+| The token field and **Save** button are disabled, with the warning *"Secure OS storage is not available; use the GITLAB_TOKEN environment variable."* | Use the `GITLAB_TOKEN` environment variable (section 5). |
 | GitHub is not connected | Run `gh auth login`, then click **Check again**. |
+| **Check** on an account says the server rejected the SSH key | Add the account's public key on the provider's SSH keys page (the wizard has a button for it), then check again. |
+| **Check** says the host is not trusted yet | Click **Review host key**, compare the fingerprint with the provider's published one, and trust it (section 4.2). |
+| **Use SSH** says nothing was changed | The read test over SSH failed, so the repo was left untouched. Read the message, fix the key or host trust, and try again. |
 | GitLab **Git access** says **Cannot reach** | Read the message under it. Typical causes: VPN or network is down, or the stored git login is no longer valid. Push once from a terminal to refresh the login, then click **Check again**. |
 | The app will not start from `dist/` | Make sure the whole `Repo Hub-win32-x64` folder is intact, or rebuild with `npm run package`. |
 
-## 6. Where the app stores its data
+## 7. Where the app stores its data
 
 ```
 C:\Users\<your-username>\AppData\Roaming\Repo Hub\
