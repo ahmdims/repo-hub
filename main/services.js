@@ -124,6 +124,14 @@ function createServices({ store, emit = () => {} }) {
       if (!p.dryRun) log('git.mirror', repo, !!res.ok, res.ok ? (res.upToDate ? 'Mirror: already in sync' : `Mirror: ${res.pushed.length} ${res.pushed.length === 1 ? 'ref' : 'refs'} copied, ${res.skipped.length} skipped`) : `Mirror failed: ${res.error || (res.failed || []).map((f) => f.note).join('; ')}`, JSON.stringify({ pushed: res.pushed, skipped: res.skipped, failed: res.failed }));
       return res;
     },
+    async 'git:pull'(p) {
+      const c = confirmed(p); if (c) return c;
+      const repo = repoOf(p.repoId);
+      const res = await git.pull(repo.path);
+      const n = res.updated || 0;
+      log('git.pull', repo, !!res.ok, res.ok ? (res.upToDate ? `Pull ${res.branch}: already up to date` : `Pull ${res.branch}: fast-forwarded ${n} ${n === 1 ? 'commit' : 'commits'} from ${res.upstream}`) : `Pull failed: ${res.error}`, res.ok && !res.upToDate ? `${res.from}..${res.to}` : res.error);
+      return res;
+    },
     async 'git:fetch'(p) { const repo = repoOf(p.repoId); const r = await git.fetchOrigin(repo.path); log('git.fetch', repo, r.ok, r.ok ? 'Fetched origin' : 'Fetch failed', r.error); return r; },
 
     /* ------------------------------------------------------------ PR / MR */

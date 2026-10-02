@@ -61,6 +61,7 @@ function rowHtml(r, i) {
     <td>${mirrorCell(r)}</td>
     <td>${prCell(r)}</td>
     <td class="table-col-actions"><div class="flex items-center justify-end gap-1.5">
+      <button type="button" class="btn-outline btn-sm whitespace-nowrap max-2xl:w-8 max-2xl:px-0" data-act="pull" title="Pull (fast-forward only)" aria-label="Pull ${r.name}">${icon('download-simple')}<span class="hidden 2xl:inline">Pull</span></button>
       <button type="button" class="btn-outline btn-sm whitespace-nowrap" data-act="push" title="Push to GitHub + GitLab">${icon('upload-simple')}<span class="hidden xl:inline">Push</span></button>
       <button type="button" class="btn-outline btn-sm whitespace-nowrap max-2xl:w-8 max-2xl:px-0" data-act="mirror" title="Mirror GitHub to GitLab" aria-label="Sync ${r.name}" ${r.github && r.gitlab ? '' : 'disabled'}>${icon('arrows-clockwise')}<span class="hidden 2xl:inline">Sync</span></button>
       <button type="button" class="btn-outline btn-sm w-8 px-0" data-act="folder" title="Open folder" aria-label="Open folder ${r.name}">${icon('folder-open')}</button>
@@ -108,6 +109,7 @@ function shell() {
         <span><b data-table-selected-count>0</b> selected</span>
         <div class="ml-auto flex flex-wrap gap-2">
           <button type="button" class="btn-outline btn-sm" data-bulk="fetch">${icon('arrows-clockwise', 'h-3.5 w-3.5')}Fetch</button>
+          <button type="button" class="btn-outline btn-sm" data-bulk="pull">${icon('download-simple', 'h-3.5 w-3.5')}Pull</button>
           <button type="button" class="btn-outline btn-sm" data-bulk="mirror">${icon('git-merge', 'h-3.5 w-3.5')}Sync GitLab</button>
           <button type="button" class="btn-primary btn-sm" data-bulk="push">${icon('upload-simple', 'h-3.5 w-3.5')}Push selected</button>
         </div>
@@ -176,6 +178,7 @@ async function onClick(e) {
     const ids = [...selected];
     if (!ids.length) return;
     if (bulk.dataset.bulk === 'push') return pushRepos(ids);
+    if (bulk.dataset.bulk === 'pull') return pullRepos(ids);
     if (bulk.dataset.bulk === 'mirror') return mirrorRepos(ids);
     return busy(bulk, async () => { await refreshAll({ fetch: true, ids }); notify('success', `Fetch finished for ${plural(ids.length, 'repo')}.`); });
   }
@@ -183,6 +186,7 @@ async function onClick(e) {
   if (!act) return;
   const id = act.closest('tr').dataset.id;
   if (act.dataset.act === 'push') return pushRepos([id]);
+  if (act.dataset.act === 'pull') return pullRepos([id]);
   if (act.dataset.act === 'mirror') return mirrorRepos([id]);
   if (act.dataset.act === 'folder') return call('shell:openFolder', { id });
 }
@@ -196,7 +200,7 @@ export async function pushRepos(ids) {
     if (!s.ok) warns.push(['danger', `Repo status could not be read${s.error ? `: ${s.error}` : ''}. Refresh first.`]);
     else if (!s.branch) warns.push(['danger', 'HEAD is detached; switch to a branch first.']);
     if (s.ok && s.branch && r.warnBranches.includes(s.branch)) warns.push(['danger', `Branch "${s.branch}" is flagged as dangerous: pushing to it may trigger a publish or release.`]);
-    if (s.ok && s.behind > 0) warns.push(['warning', `Behind the remote by ${plural(s.behind, 'commit')}; the push may be rejected (non-fast-forward). Pull or rebase first.`]);
+    if (s.ok && s.behind > 0) warns.push(['warning', `Behind the remote by ${plural(s.behind, 'commit')}; the push may be rejected (non-fast-forward). Use Pull (or rebase) first.`]);
     if (s.ok && s.dirty) warns.push(['warning', `${plural(s.staged + s.changed + s.untracked, 'uncommitted change')} will not be pushed.`]);
     if (s.ok && s.ahead === 0) warns.push(['info', 'No new commits ahead of upstream; pushing is still safe (it only syncs the other remote).']);
     const blocked = !s.ok || !s.branch;
@@ -238,6 +242,66 @@ export async function pushRepos(ids) {
     d.setFooter(html`<button type="button" class="btn-primary btn-md" data-dialog-close>Done</button>`);
     notify(okAll ? 'success' : 'warning', okAll ? `Push finished for ${plural(count, 'repo')}.` : 'Push finished with some failures. See the dialog for details.');
     refreshAll({ fetch: false, ids: items.map((x) => x.r.id) });
+  });
+}
+
+/* ------------------------------------------------------------------ pull (fast-forward saja) */
+// Menilai apakah repo bisa di-pull berdasarkan status terbaru. Proses utama memeriksa ulang semuanya (git:pull).
+function pullVerdict(s) {
+  if (!s || !s.ok) return { can: false, kind: 'danger', msg: `Repo status could not be read${s && s.error ? `: ${s.error}` : ''}.` };
+  if (!s.branch) return { can: false, kind: 'danger', msg: 'HEAD is detached; switch to a branch first.' };
+  if (!s.upstream) return { can: false, kind: 'warning', msg: `Branch "${s.branch}" has no upstream to pull from.` };
+  if (s.ahead == null) return { can: false, kind: 'warning', msg: 'The upstream branch no longer exists on the remote.' };
+  if (s.staged + s.changed + s.conflicts > 0) return { can: false, kind: 'warning', msg: 'There are uncommitted changes to tracked files. Commit or stash them first.' };
+  if (s.ahead > 0 && s.behind > 0) return { can: false, kind: 'warning', msg: `History has diverged (${plural(s.ahead, 'commit')} ahead, ${s.behind} behind), so a fast-forward is not possible. Merge or rebase manually.` };
+  if (!s.behind) return { can: false, kind: 'info', msg: s.ahead > 0 ? 'Nothing to pull; local commits are ahead of upstream (use Push).' : 'Already up to date.' };
+  return { can: true, kind: 'ok', msg: `Will fast-forward ${plural(s.behind, 'commit')} from ${s.upstream}.` };
+}
+
+export async function pullRepos(ids) {
+  const repos = ids.map(repoById).filter(Boolean);
+  if (!repos.length) return;
+  const d = dialog({
+    title: repos.length === 1 ? `Pull ${repos[0].name}` : `Pull ${plural(repos.length, 'repo')}`,
+    description: 'Fast-forward only: each branch moves forward to its upstream. Nothing is merged, rebased, reset or overwritten, and untracked files are left alone.',
+    size: 'modal-xl',
+    body: html`<p class="text-sm text-slate-500">Fetching the latest state…</p>`,
+    footer: html`<button type="button" class="btn-outline btn-md" data-dialog-close>Cancel</button><button type="button" class="btn-primary btn-md" data-run disabled>${icon('download-simple')}Pull now</button>`,
+  });
+  await refreshAll({ fetch: true, ids: repos.map((r) => r.id) });
+  const items = repos.map((r) => { const s = state.status[r.id] || {}; return { r, s, v: pullVerdict(s) }; });
+  const tone = { danger: 'text-danger-700', warning: 'text-warning-700', info: 'text-slate-500', ok: 'text-success-700' };
+  const card = ({ r, s, v }) => html`<div class="rounded-xl border border-border p-3.5" data-pull="${r.id}">
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <div class="min-w-0"><p class="font-medium text-slate-800">${r.name}</p><p class="text-xs text-slate-500">branch <span class="kbd-ref">${s.branch || '—'}</span>${s.upstream ? html` · upstream <span class="kbd-ref">${s.upstream}</span>` : ''}</p></div>
+      ${v.can ? html`<label class="flex items-center gap-2 text-sm"><input type="checkbox" class="form-check form-check-sm" data-pull-check checked />Pull</label>` : ''}
+    </div>
+    <p class="mt-2.5 flex items-start gap-2 text-xs ${tone[v.kind]}">${icon(v.kind === 'ok' ? 'check-circle' : v.kind === 'info' ? 'info' : 'warning', 'mt-0.5 h-3.5 w-3.5 shrink-0')}<span>${v.msg}</span></p>
+    <div class="mt-2.5 hidden space-y-1 text-xs" data-result></div>
+  </div>`;
+  d.setBody(html`<div class="space-y-3">${items.map(card)}</div>`);
+  const work = items.filter((x) => x.v.can);
+  const run = d.$('[data-run]');
+  run.disabled = !work.length;
+  if (!work.length) { d.setFooter(html`<button type="button" class="btn-primary btn-md" data-dialog-close>Close</button>`); return; }
+  run.addEventListener('click', async () => {
+    run.disabled = true; d.lock(true); run.innerHTML = `${icon('circle-notch', 'h-4 w-4 animate-spin').s}Pulling…`;
+    let okAll = true, count = 0;
+    for (const { r } of work) {
+      const box = d.$(`[data-pull="${r.id}"]`);
+      const out = box.querySelector('[data-result]'); out.classList.remove('hidden');
+      if (!box.querySelector('[data-pull-check]').checked) { out.innerHTML = '<p class="text-slate-500">Skipped.</p>'; continue; }
+      out.innerHTML = '<p class="text-slate-500">Pulling…</p>';
+      const res = await call('git:pull', { repoId: r.id, confirmed: true }, { silent: true });
+      out.innerHTML = res.ok
+        ? `<p class="text-success-700">✓ ${res.upToDate ? 'Already up to date.' : `Fast-forwarded ${esc(plural(res.updated, 'commit'))} (${esc(res.from)} → ${esc(res.to)}).`}</p>`
+        : `<p class="text-danger-700">✕ ${esc(res.error || 'Failed')}</p>`;
+      if (res.ok) count++; else okAll = false;
+    }
+    d.lock(false);
+    d.setFooter(html`<button type="button" class="btn-primary btn-md" data-dialog-close>Done</button>`);
+    notify(okAll ? 'success' : 'warning', okAll ? `Pull finished for ${plural(count, 'repo')}.` : 'Pull finished with some failures. See the dialog for details.');
+    refreshAll({ fetch: false, ids: work.map((x) => x.r.id) });
   });
 }
 
